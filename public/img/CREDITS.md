@@ -1,3 +1,5 @@
 - card-code.jpg: Photo by Pexels on Pixabay (https://pixabay.com/photos/code-coding-computer-data-1839406/)
 - card-image.jpg: Photo by pixel2013 on Pixabay (https://pixabay.com/photos/lake-water-waves-reflection-2120033/)
 - card-search.jpg: Photo by motionstock on Pixabay (https://pixabay.com/photos/earth-space-3d-render-realistic-5382601/)
+- hero-side.jpg: Photo by imperioame on Pixabay (https://pixabay.com/photos/woman-model-silhouette-star-8035746/)
+- hero-side.jpg: Photo by Konyvesotto on Pixabay (https://pixabay.com/photos/smoke-art-abstract-smoke-incense-5807013/)

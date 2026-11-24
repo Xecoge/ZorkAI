@@ -17,6 +17,18 @@ const SUGGESTIONS = [
 const $ = (s, r = document) => r.querySelector(s);
 
 /* ---------- модели: карточки, аватары, меню ---------- */
+const MARQUEE = [
+  { name: 'Claude', logo: '/logos/claude.svg' },
+  { name: 'Anthropic', logo: '/logos/anthropic.svg' },
+  { name: 'GPT', logo: '/logos/openai.svg' },
+  { name: 'Grok', logo: '/logos/grok.svg' },
+  { name: 'Gemini', logo: '/logos/gemini.svg' },
+  { name: 'DeepSeek', logo: '/logos/deepseek.svg' },
+  { name: 'Mistral', logo: '/logos/mistral.svg' },
+  { name: 'Llama', logo: '/logos/meta.svg' },
+  { name: 'Qwen', logo: '/logos/qwen.svg' },
+];
+
 const modelsGrid = $('#modelsGrid');
 modelsGrid.innerHTML = MODELS.map((m, i) => `
   <article class="mcard reveal" style="--d:${i * 0.07}s">
@@ -26,8 +38,12 @@ modelsGrid.innerHTML = MODELS.map((m, i) => `
     <p>${m.desc}</p>
   </article>`).join('');
 
-$('#heroAvatars').innerHTML = MODELS.map(m => `
-  <div class="mavatar" style="background:${m.color}" title="${m.name}">${m.logo}</div>`).join('');
+$('#heroAvatars')?.remove();
+const track = $('#marqueeTrack');
+if (track) {
+  const items = MARQUEE.map(m => `<span class="marquee__item"><img src="${m.logo}" alt="" />${m.name}</span>`).join('');
+  track.innerHTML = items + items;
+}
 
 const modelList = $('[data-model-list]');
 modelList.innerHTML = MODELS.map(m => `
