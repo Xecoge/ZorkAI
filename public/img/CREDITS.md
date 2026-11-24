@@ -1,0 +1,3 @@
+- card-code.jpg: Photo by Pexels on Pixabay (https://pixabay.com/photos/code-coding-computer-data-1839406/)
+- card-image.jpg: Photo by pixel2013 on Pixabay (https://pixabay.com/photos/lake-water-waves-reflection-2120033/)
+- card-search.jpg: Photo by motionstock on Pixabay (https://pixabay.com/photos/earth-space-3d-render-realistic-5382601/)

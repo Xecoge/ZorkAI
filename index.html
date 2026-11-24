@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="ZorkAI — ИИ-ассистент нового поколения. Модели Claude Fable 5.2, Opus 5.5, GPT 6.1 Sol, Grok 4.7 и другие в одном интерфейсе." />
+  <title>ZorkAI — ИИ нового поколения</title>
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div class="noise"></div>
+  <div class="orb" data-orb></div>
+
+  <!-- ============ ЛЕНДИНГ (гость) ============ -->
+  <div id="landing">
+    <header class="nav reveal">
+      <a class="nav__logo" href="#" data-logo>
+        <img src="/img/zork-logo.webp" alt="Zork" width="34" height="34" />
+        <span>ZORK<b>AI</b></span>
+      </a>
+      <nav class="nav__links">
+        <a href="#models">Модели</a>
+        <a href="#features">Возможности</a>
+        <a href="#showcase">Галерея</a>
+      </nav>
+      <button class="btn btn--primary nav__cta" data-open-chat>Начать чат</button>
+    </header>
+
+    <section class="hero">
+      <img class="hero__bg" src="/img/zork-hero.webp" alt="" aria-hidden="true" />
+      <div class="hero__content">
+        <div class="hero__badge reveal">✦ ZorkAI · новое поколение моделей</div>
+        <h1 class="hero__title">
+          <span class="reveal">Задай вопрос.</span>
+          <span class="hero__title-accent reveal">Получи гениальный ответ.</span>
+        </h1>
+        <p class="hero__sub reveal">Claude Fable 5.2, Opus 5.5, GPT 6.1 Sol, Grok 4.7 и другие — в одном красивом интерфейсе. Быстро, глубоко, с визуальным мышлением.</p>
+        <div class="hero__actions reveal">
+          <button class="btn btn--primary btn--lg" data-open-chat>Открыть чат →</button>
+          <a class="btn btn--ghost btn--lg" href="#models">Посмотреть модели</a>
+        </div>
+        <div class="hero__avatars reveal">
+          <div class="hero__avatars-row" id="heroAvatars"></div>
+          <span>6 моделей · 1 интерфейс</span>
+        </div>
+      </div>
+      <div class="hero__scroll">scroll ↓</div>
+    </section>
+
+    <section class="models" id="models">
+      <h2 class="section-title reveal">Модели <span>на выбор</span></h2>
+      <p class="section-sub reveal">Переключайся между лучшими ИИ прямо в чате — одной кнопкой.</p>
+      <div class="models__grid" id="modelsGrid"></div>
+    </section>
+
+    <section class="features" id="features">
+      <h2 class="section-title reveal">Что умеет <span>Zork</span></h2>
+      <div class="features__grid">
+        <article class="feature reveal">
+          <div class="feature__media"><img src="/img/card-code.jpg" alt="" loading="lazy" /></div>
+          <h3>⚡ Молниеносный код</h3>
+          <p>Пишет, отлаживает и объясняет код на 40+ языках. От скрипта до архитектуры.</p>
+        </article>
+        <article class="feature reveal">
+          <div class="feature__media"><img src="/img/card-image.jpg" alt="" loading="lazy" /></div>
+          <h3>🎨 Видит и воображает</h3>
+          <p>Анализирует изображения и генерирует новые — от эскиза до фотореализма.</p>
+        </article>
+        <article class="feature reveal">
+          <div class="feature__media"><img src="/img/card-search.jpg" alt="" loading="lazy" /></div>
+          <h3>🌐 Знает всё на свете</h3>
+          <p>Поиск в реальном времени и глубокие исследования с источниками.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="showcase" id="showcase">
+      <h2 class="section-title reveal">Создано <span>с ZorkAI</span></h2>
+      <p class="section-sub reveal">То, что создают пользователи каждый день.</p>
+      <div class="showcase__grid">
+        <img class="reveal" src="/stock/gallery-nebula.jpg" alt="Туманность Тарантула" loading="lazy" />
+        <img class="reveal" src="/img/card-search.jpg" alt="Планета" loading="lazy" />
+        <img class="reveal" src="/img/card-image.jpg" alt="Абстракция" loading="lazy" />
+        <img class="reveal" src="/img/card-code.jpg" alt="Код" loading="lazy" />
+      </div>
+    </section>
+
+    <section class="cta reveal">
+      <h2>Готовы спросить что-нибудь гениальное?</h2>
+      <button class="btn btn--primary btn--lg" data-open-chat>Начать — бесплатно →</button>
+    </section>
+
+    <footer class="footer reveal">© 2026 ZorkAI · Сделано с ♥ и немного магии ИИ</footer>
+  </div>
+
+  <!-- ============ ЧАТ ============ -->
+  <div id="chat" class="chat" hidden>
+    <aside class="chat__sidebar">
+      <button class="chat__new" data-new-chat>＋ Новый чат</button>
+      <div class="chat__history" data-history></div>
+      <button class="chat__back" data-close-chat>← На главную</button>
+    </aside>
+    <main class="chat__main">
+      <header class="chat__top">
+        <button class="chat__burger" data-burger>☰</button>
+        <button class="chat__model" data-model-menu>
+          <span class="chat__model-dot" data-model-dot></span>
+          <span data-model-name>Claude Fable 5.2</span>
+          <span class="chat__model-caret">▾</span>
+        </button>
+        <div class="chat__model-menu" data-model-list hidden></div>
+      </header>
+
+      <div class="chat__scroll" data-scroll>
+        <div class="chat__welcome">
+          <img src="/img/zork-logo.webp" alt="" width="72" height="72" />
+          <h2>На что твой ум сегодня?</h2>
+          <div class="chat__suggestions" data-suggestions></div>
+        </div>
+        <div class="chat__messages" data-messages></div>
+      </div>
+
+      <form class="chat__input" data-form>
+        <div class="chat__input-box">
+          <textarea rows="1" placeholder="Напиши что-нибудь..." data-input></textarea>
+          <button type="submit" class="chat__send" data-send aria-label="Отправить">↑</button>
+        </div>
+        <p class="chat__hint">ZorkAI может ошибаться. Проверяйте важное.</p>
+      </form>
+    </main>
+  </div>
+
+  <script type="module" src="/src/app.js"></script>
+</body>
+</html>
