@@ -1,74 +1,82 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, Suspense } from "react";
-import { Mail, Chrome, Apple, Github } from "lucide-react";
+import { Github } from "lucide-react";
+import { ZorkLogo } from "@/components/zork-logo";
 
-function XLogo({ className = "" }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-    </svg>
-  );
-}
-
-const PROVIDERS = [
-  { id: "google", label: "Google", Icon: null },
-  { id: "x", label: "X", Icon: null },
-  { id: "apple", label: "Apple" },
-  { id: "github", label: "GitHub" },
-  { id: "email", label: "email" },
-];
-
-export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
+export function AuthForm({ mode, oauth }: { mode: "sign-in" | "sign-up"; oauth: { google: boolean; github: boolean } }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const isUp = mode === "sign-up";
+
+  // Surfaced when an OAuth callback bounces back with ?oauth=<reason>.
+  const oauthNotice: Record<string, string> = {
+    "google-unconfigured": "Google sign-in is not configured on this deployment. Use email and password below.",
+    "github-unconfigured": "GitHub sign-in is not configured on this deployment. Use email and password below.",
+    unconfigured: "Single sign-in is not configured on this deployment. Use email and password below.",
+    state: "The sign-in attempt expired. Please try again.",
+    token: "Could not complete sign-in with the provider. Please try again.",
+    email: "The provider did not share an email address for this account.",
+  };
+  const searchParams = useSearchParams();
+  const oauthStatus = searchParams.get("oauth") ?? "";
+  const authError = searchParams.get("authError") ?? "";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setBusy(true);
-    const res = await fetch("/api/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: isUp ? "register" : "login", email, password, name }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setBusy(false);
-    if (!res.ok) {
-      setError(data.error || "Something went wrong. Try again.");
-      return;
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: isUp ? "register" : "login", email, password, name }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Something went wrong. Try again.");
+        return;
+      }
+      router.push("/app");
+      router.refresh();
+    } catch {
+      setError("Network error. Check your connection and try again.");
+    } finally {
+      setBusy(false);
     }
-    router.push("/app");
-    router.refresh();
   }
 
   return (
-    <div className="min-h-dvh bg-white dark:bg-[#1a1a1a] flex flex-col">
+    <div className="dark min-h-dvh bg-pane text-text flex flex-col">
       <header className="px-6 py-5">
-        <Link href="/" className="inline-block" aria-label="Home">
-          <svg viewBox="0 0 24 24" className="w-6 h-6" fill="currentColor" aria-hidden="true">
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-          </svg>
-        </Link>
+        <ZorkLogo height={34} />
       </header>
       <main className="flex-1 flex flex-col items-center justify-center px-4 pb-24">
         <h1 className="text-[26px] font-semibold tracking-tight text-text mb-3">
           {isUp ? "Create your account" : "Log into your account"}
         </h1>
         <p className="text-[14px] text-tertiary text-center max-w-[380px] mb-8">
-          By continuing, you agree to our Terms of Service, Privacy Policy, and Cookie Policy.
+          By continuing, you agree to our{" "}
+          <Link href="/terms" className="underline underline-offset-2 hover:text-text transition-colors">Terms of Service</Link> and{" "}
+          <Link href="/privacy" className="underline underline-offset-2 hover:text-text transition-colors">Privacy Policy</Link>.
         </p>
 
-        <form onSubmit={submit} className="w-full max-w-[400px] flex flex-col gap-3">
+        <form
+          onSubmit={submit}
+          action={`/api/auth?mode=${isUp ? "register" : "login"}`}
+          method="post"
+          className="w-full max-w-[400px] flex flex-col gap-3"
+        >
           {isUp && (
             <input
+              name="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Name"
@@ -77,6 +85,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
             />
           )}
           <input
+            name="email"
             type="email"
             required
             value={email}
@@ -86,6 +95,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
             className="h-[52px] px-4 rounded-full border border-line bg-transparent text-[15px] outline-none focus:border-accent transition-colors"
           />
           <input
+            name="password"
             type="password"
             required
             value={password}
@@ -97,6 +107,16 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           {error && (
             <p role="alert" className="text-[13px] text-danger px-2">
               {error}
+            </p>
+          )}
+          {!error && authError && (
+            <p role="alert" className="text-[13px] text-danger px-2">
+              {authError}
+            </p>
+          )}
+          {!error && !authError && oauthNotice[oauthStatus] && (
+            <p role="status" className="text-[13px] text-warning px-2">
+              {oauthNotice[oauthStatus]}
             </p>
           )}
           <button
@@ -113,10 +133,13 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
         </div>
 
         <div className="w-full max-w-[400px] mt-5 flex flex-col gap-3">
-          <SSO label={isUp ? "Continue with Google" : "Login with Google"} glyph={<GoogleG />} />
-          <SSO label={isUp ? "Continue with X" : "Login with X"} glyph={<XLogo className="w-5 h-5" />} />
-          <SSO label={isUp ? "Continue with Apple" : "Login with Apple"} glyph={<Apple className="w-5 h-5" />} />
-          <SSO label={isUp ? "Continue with GitHub" : "Login with GitHub"} glyph={<Github className="w-5 h-5" />} />
+          <SSO provider="google" configured={oauth.google} label={isUp ? "Continue with Google" : "Login with Google"} glyph={<GoogleG />} onNotice={setNotice} />
+          <SSO provider="github" configured={oauth.github} label={isUp ? "Continue with GitHub" : "Login with GitHub"} glyph={<Github className="w-5 h-5" />} onNotice={setNotice} />
+          {notice && (
+            <p role="status" className="text-[13px] text-warning px-2 text-center">
+              {notice}
+            </p>
+          )}
         </div>
 
         <p className="mt-8 text-[14px] text-secondary">
@@ -135,12 +158,31 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   );
 }
 
-function SSO({ label, glyph }: { label: string; glyph: React.ReactNode }) {
+// When provider credentials exist this is a real sign-in link; when they do not,
+// tapping still answers immediately with a visible explanation instead of nothing.
+function SSO({ provider, configured, label, glyph, onNotice }: {
+  provider: "google" | "github";
+  configured: boolean;
+  label: string;
+  glyph: React.ReactNode;
+  onNotice: (msg: string) => void;
+}) {
+  if (configured) {
+    return (
+      <a
+        href={`/api/auth/oauth/${provider}`}
+        className="h-[50px] px-4 rounded-full border border-line bg-bg flex items-center justify-center gap-2 text-[15px] font-medium hover:bg-hover active:bg-selected transition-colors"
+      >
+        {glyph}
+        {label}
+      </a>
+    );
+  }
   return (
     <button
       type="button"
-      title="Single sign-on is not enabled on this deployment"
-      className="h-[50px] px-4 rounded-full border border-line bg-bg flex items-center justify-center gap-2 text-[15px] font-medium hover:bg-hover transition-colors cursor-pointer"
+      onClick={() => onNotice(`${label} is not configured on this deployment. Use email and password below.`)}
+      className="h-[50px] px-4 rounded-full border border-line bg-bg flex items-center justify-center gap-2 text-[15px] font-medium hover:bg-hover active:bg-selected transition-colors cursor-pointer"
     >
       {glyph}
       {label}

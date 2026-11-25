@@ -100,8 +100,8 @@ export function getProvider(): AIProvider {
 export const MODES: Record<Mode, { label: string; description: string; paid: boolean }> = {
   auto: { label: "Auto", description: "Chooses Fast or Expert", paid: true },
   fast: { label: "Fast", description: "Quick responses", paid: false },
-  expert: { label: "Expert", description: "Thinks hard · Grok 4.7", paid: true },
-  heavy: { label: "Heavy", description: "Team of Experts · Grok 4.7", paid: true },
+  expert: { label: "Expert", description: "Thinks hard · Zork-X1", paid: true },
+  heavy: { label: "Heavy", description: "Team of Experts · Zork-X1", paid: true },
 };
 
 export function normalizeMode(v: unknown): Mode {

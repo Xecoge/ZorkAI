@@ -26,14 +26,20 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!chat) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json().catch(() => null);
-  const content = String(body?.content || "").trim();
-  if (!content) return NextResponse.json({ error: "Message is empty." }, { status: 400 });
   const regenerate = Boolean(body?.regenerate);
+  const content = String(body?.content || "").trim();
+  if (!content && !regenerate) return NextResponse.json({ error: "Message is empty." }, { status: 400 });
 
   const mode = normalizeMode(body?.mode ?? chat.mode);
   const now = Date.now();
 
-  if (!regenerate) {
+  if (regenerate) {
+    // Drop the trailing assistant replies so the retry replaces them instead of duplicating.
+    const rows = db.select().from(messages).where(eq(messages.chatId, id)).orderBy(asc(messages.createdAt)).all();
+    for (let i = rows.length - 1; i >= 0 && rows[i].role === "assistant"; i--) {
+      db.delete(messages).where(eq(messages.id, rows[i].id)).run();
+    }
+  } else {
     db.insert(messages)
       .values({ id: newId("msg"), chatId: id, role: "user", content: content.slice(0, 16000), createdAt: now })
       .run();

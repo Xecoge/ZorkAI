@@ -6,8 +6,8 @@ import { ArrowUp, Plus, Mic, Paperclip, ImagePlus, Globe, Check, ChevronDown, Sp
 const MODES = [
   { id: "auto", label: "Auto", description: "Chooses Fast or Expert", paid: true },
   { id: "fast", label: "Fast", description: "Quick responses", paid: false },
-  { id: "expert", label: "Expert", description: "Thinks hard · Grok 4.7", paid: true },
-  { id: "heavy", label: "Heavy", description: "Team of Experts · Grok 4.7", paid: true },
+  { id: "expert", label: "Expert", description: "Thinks hard · Zork-X1", paid: true },
+  { id: "heavy", label: "Heavy", description: "Team of Experts · Zork-X1", paid: true },
 ];
 
 export function Composer({ onSend, busy, mode, setMode }: {
@@ -19,7 +19,14 @@ export function Composer({ onSend, busy, mode, setMode }: {
   const [value, setValue] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
+  const [notice, setNotice] = useState("");
   const taRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(""), 3200);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   useEffect(() => {
     const ta = taRef.current;
@@ -53,9 +60,9 @@ export function Composer({ onSend, busy, mode, setMode }: {
             <>
               <div className="fixed inset-0 z-40" onClick={() => setAttachOpen(false)} />
               <div className="pop-in absolute bottom-12 left-0 z-50 w-[220px] rounded-2xl border border-line bg-bg shadow-pop p-1.5 text-[14px]">
-                <AttachItem icon={Paperclip} label="Attach file" hint="PDF, CSV, docs" />
-                <AttachItem icon={ImagePlus} label="Upload image" hint="PNG, JPG, WebP" />
-                <AttachItem icon={Globe} label="Search the web" hint="Latest sources" />
+                <AttachItem icon={Paperclip} label="Attach file" hint="Needs a storage provider" onClick={() => setNotice("File attachments need a storage provider on this deployment.")} />
+                <AttachItem icon={ImagePlus} label="Upload image" hint="Needs a storage provider" onClick={() => setNotice("Image uploads need a storage provider on this deployment.")} />
+                <AttachItem icon={Globe} label="Search the web" hint="Latest sources" onClick={() => { setAttachOpen(false); onSend("Search the web: "); }} />
               </div>
             </>
           )}
@@ -111,7 +118,12 @@ export function Composer({ onSend, busy, mode, setMode }: {
               </>
             )}
           </div>
-          <button type="button" aria-label="Voice mode" className="w-9 h-9 grid place-items-center rounded-full text-secondary hover:bg-hover transition-colors">
+          <button
+            type="button"
+            aria-label="Voice mode"
+            onClick={() => setNotice("Voice mode needs a speech provider on this deployment.")}
+            className="w-9 h-9 grid place-items-center rounded-full text-secondary hover:bg-hover transition-colors"
+          >
             <Mic className="w-[17px] h-[17px]" />
           </button>
           <button
@@ -125,13 +137,22 @@ export function Composer({ onSend, busy, mode, setMode }: {
           </button>
         </div>
       </div>
+      {notice && (
+        <p role="status" className="mt-2 px-4 text-[13px] text-secondary text-center">
+          {notice}
+        </p>
+      )}
     </div>
   );
 }
 
-function AttachItem({ icon: Icon, label, hint }: { icon: React.ComponentType<{ className?: string }>; label: string; hint: string }) {
+function AttachItem({ icon: Icon, label, hint, onClick }: { icon: React.ComponentType<{ className?: string }>; label: string; hint: string; onClick: () => void }) {
   return (
-    <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-hover transition-colors text-left" title="Attachments require a storage provider on this deployment">
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-hover transition-colors text-left"
+    >
       <Icon className="w-[16px] h-[16px] text-secondary" />
       <span className="flex-1 min-w-0">
         <span className="block truncate">{label}</span>

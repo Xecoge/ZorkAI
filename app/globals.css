@@ -57,6 +57,7 @@
   --color-selected: var(--selected);
   --color-accent: var(--accent);
   --color-danger: var(--danger);
+  --color-warning: var(--warning);
   --radius-full: 999px;
   --radius-xl: 28px;
   --radius-lg: 20px;

@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Grokish — AI that is useful for everyone",
+  title: "Zork — AI that is useful for everyone",
   description: "Chat, search, reason, and create — all in one place.",
 };
 
@@ -28,7 +28,7 @@ export const viewport: Viewport = {
   ],
 };
 
-const themeInit = `(function(){try{var s=localStorage.getItem("grokish-theme")||"system";var d=s==="dark"||(s==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
+const themeInit = `(function(){try{var s=localStorage.getItem("grokish-theme")||"dark";var d=s!=="light";document.documentElement.classList.toggle("dark",d);}catch(e){document.documentElement.classList.add("dark")}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

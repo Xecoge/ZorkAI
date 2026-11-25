@@ -22,6 +22,7 @@ const PANES = [
 export function SettingsModal({ pane, setPane, onClose }: { pane: string; setPane: (p: string) => void; onClose: () => void }) {
   const { user, settings, setSettings, theme, setTheme } = useShell();
   const [filter, setFilter] = useState("");
+  const [tierNotice, setTierNotice] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -92,10 +93,19 @@ export function SettingsModal({ pane, setPane, onClose }: { pane: string; setPan
           <div className="border-t border-line px-6 py-3 flex items-center gap-3">
             <p className="text-[13px] font-medium">Get 50% off Premium</p>
             <p className="text-[13px] text-tertiary truncate hidden sm:block">Fewer rate limits, more capabilities</p>
-            <button className="ml-auto h-8 px-4 rounded-full bg-[#1a1a1a] dark:bg-white text-white dark:text-[#1a1a1a] text-[13px] font-medium hover:opacity-85 transition-opacity">
+            <button
+              onClick={() => setTierNotice(true)}
+              aria-label="Upgrade to Premium"
+              className="ml-auto h-8 px-4 rounded-full bg-[#1a1a1a] dark:bg-white text-white dark:text-[#1a1a1a] text-[13px] font-medium hover:opacity-85 transition-opacity"
+            >
               Upgrade
             </button>
           </div>
+          {tierNotice && (
+            <div className="px-6 pb-3 -mt-1 text-[12px] text-tertiary" role="status">
+              Billing is not enabled on this deployment — every plan currently has the same limits.
+            </div>
+          )}
         </div>
       </div>
     </div>

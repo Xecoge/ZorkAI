@@ -105,7 +105,7 @@ export function ChatView({ chat, initialMessages }: { chat: { id: string; title:
             {error && (
               <div className="rounded-2xl border border-line bg-pane px-4 py-3 text-[13px] text-danger flex items-center justify-between gap-3">
                 {error}
-                <button onClick={() => setError("")} aria-label="Dismiss error"><X className="w-4 h-4" /></button>
+                <button onClick={() => setError("")} aria-label="Dismiss error" className="w-9 h-9 -mr-2 grid place-items-center rounded-full hover:bg-hover"><X className="w-4 h-4" /></button>
               </div>
             )}
             <div ref={bottomRef} />
@@ -114,8 +114,8 @@ export function ChatView({ chat, initialMessages }: { chat: { id: string; title:
       )}
 
       {!empty && (
-        <div className="absolute bottom-0 inset-x-0 pb-4 pt-8 bg-gradient-to-t from-bg via-bg/95 to-transparent">
-          <div className="max-w-[764px] mx-auto px-4">
+        <div className="absolute bottom-0 inset-x-0 pb-4 pt-8 bg-gradient-to-t from-bg via-bg/95 to-transparent pointer-events-none">
+          <div className="max-w-[764px] mx-auto px-4 pointer-events-auto">
             <Composer onSend={(v) => send(v)} busy={busy} mode={mode} setMode={setMode} />
           </div>
         </div>
@@ -162,7 +162,7 @@ function AssistantMessage({ message, onRegenerate, wrapCode }: { message: Msg; o
       <Markdown source={message.content} wrapCode={wrapCode} />
       <div className="mt-3 flex items-center gap-0.5 text-secondary">
         {message.sources ? (
-          <Link href="#" className="mr-2 h-7 px-2 inline-flex items-center gap-1.5 rounded-full border border-line text-[12px] hover:bg-hover transition-colors">
+          <Link href="/app/search" className="mr-2 h-7 px-2 inline-flex items-center gap-1.5 rounded-full border border-line text-[12px] hover:bg-hover transition-colors">
             <BarChart3 className="w-3.5 h-3.5" />
             {message.sources} sources
           </Link>
@@ -170,7 +170,7 @@ function AssistantMessage({ message, onRegenerate, wrapCode }: { message: Msg; o
         <ActionBtn
           label={copied ? "Copied" : "Copy"}
           onClick={() => {
-            navigator.clipboard.writeText(message.content).catch(() => {});
+            if (navigator.clipboard) navigator.clipboard.writeText(message.content).catch(() => {});
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
           }}
@@ -205,7 +205,7 @@ function ActionBtn({ children, label, onClick, active }: { children: React.React
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`w-7 h-7 grid place-items-center rounded-full hover:bg-hover transition-colors ${active ? "text-accent" : ""}`}
+      className={`w-9 h-9 grid place-items-center rounded-full hover:bg-hover transition-colors ${active ? "text-accent" : ""}`}
     >
       {children}
     </button>

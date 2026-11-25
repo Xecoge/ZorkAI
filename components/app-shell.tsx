@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { ZorkLogo } from "@/components/zork-logo";
+import { PrivacyChoicesModal } from "@/components/privacy-footer";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   PanelLeft, Search, SquarePen, Library, Plus, Folder, FolderOpen, Mic, Settings,
@@ -43,6 +45,7 @@ export function AppShell({ user, initialSettings, children }: {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileNav, setMobileNav] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [settingsPane, setSettingsPane] = useState<string | null>(null);
   const [sidebar, setSidebar] = useState<SidebarData>({ chats: [], projects: [] });
   const [settings, setSettings] = useState<Settings>(initialSettings);
@@ -75,16 +78,23 @@ export function AppShell({ user, initialSettings, children }: {
   return (
     <Ctx.Provider value={ctx}>
       <div className="h-dvh flex bg-pane overflow-hidden">
+        {/* Mobile drawer backdrop */}
+        {mobileNav && <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setMobileNav(false)} aria-hidden="true" />}
         {/* Sidebar */}
         <aside
-          className={`${sidebarOpen ? "w-[275px]" : "w-0"} ${mobileNav ? "fixed inset-y-0 left-0 z-40 w-[300px]" : "hidden md:flex"} shrink-0 flex-col border-r border-line bg-pane transition-[width] duration-300 overflow-hidden`}
+          className={`shrink-0 flex-col border-r border-line bg-pane transition-[width] duration-300 overflow-hidden ${
+            mobileNav
+              ? "fixed inset-y-0 left-0 z-40 w-[300px] flex"
+              : `hidden md:flex ${sidebarOpen ? "w-[275px]" : "w-0"}`
+          }`}
         >
           {mobileNav && (
             <button aria-label="Close menu" onClick={() => setMobileNav(false)} className="absolute right-3 top-3 z-50 w-9 h-9 grid place-items-center rounded-full hover:bg-hover md:hidden">
               <X className="w-4 h-4" />
             </button>
           )}
-          <div className={`flex items-center gap-1 px-3 pt-3 pb-2 ${sidebarOpen ? "" : "opacity-0"}`}>
+          <div className={`flex items-center gap-1 px-3 pt-3 pb-2 ${!mobileNav && !sidebarOpen ? "opacity-0" : ""}`}>
+            <ZorkLogo height={30} className="mr-auto ml-0.5" />
             <button
               onClick={() => setSidebarOpen(false)}
               aria-label="Collapse sidebar"
@@ -101,7 +111,7 @@ export function AppShell({ user, initialSettings, children }: {
             </button>
           </div>
 
-          <nav className={`flex-1 overflow-y-auto px-3 pb-3 ${sidebarOpen ? "" : "opacity-0"}`}>
+          <nav className={`flex-1 overflow-y-auto px-3 pb-3 ${!mobileNav && !sidebarOpen ? "opacity-0" : ""}`}>
             <Link
               href="/app"
               onClick={() => setMobileNav(false)}
@@ -128,8 +138,17 @@ export function AppShell({ user, initialSettings, children }: {
             ))}
           </nav>
 
-          <div className={`px-3 pb-3 pt-2 border-t border-line ${sidebarOpen ? "" : "opacity-0"}`}>
+          <div className={`px-3 pb-2 pt-2 border-t border-line ${!mobileNav && !sidebarOpen ? "opacity-0" : ""}`}>
             <AccountMenu user={user} />
+            <div className="mt-1 px-3 pb-1 flex items-center gap-2 text-[11px] text-tertiary">
+              <Link href="/terms" className="hover:text-text transition-colors">Terms</Link>
+              <span aria-hidden="true">·</span>
+              <Link href="/privacy" className="hover:text-text transition-colors">Privacy</Link>
+              <span aria-hidden="true">·</span>
+              <button onClick={() => setPrivacyOpen(true)} className="hover:text-text transition-colors">
+                Privacy choices
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -157,6 +176,7 @@ export function AppShell({ user, initialSettings, children }: {
       </div>
 
       {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} />}
+      {privacyOpen && <PrivacyChoicesModal onClose={() => setPrivacyOpen(false)} />}
       {settingsPane && (
         <SettingsModal pane={settingsPane} setPane={setSettingsPane} onClose={() => setSettingsPane(null)} />
       )}
