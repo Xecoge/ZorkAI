@@ -15,7 +15,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ provider: s
   const fail = (reason: string) => {
     const url = new URL("/sign-in", origin);
     url.searchParams.set("oauth", reason);
-    return NextResponse.redirect(url);
+    const res = NextResponse.redirect(url);
+    res.cookies.delete({ name: OAUTH_STATE_COOKIE, path: "/" });
+    return res;
   };
 
   if (!cfg || !cfg.clientId || !cfg.clientSecret) return fail("unconfigured");
@@ -24,7 +26,6 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ provider: s
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const cookieState = req.cookies.get(OAUTH_STATE_COOKIE)?.value ?? "";
-  req.cookies.delete?.(OAUTH_STATE_COOKIE);
 
   if (!code || !state || cookieState !== `${provider}.${state}`) return fail("state");
 
@@ -85,5 +86,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ provider: s
   }
   await createSession(userId);
 
-  return NextResponse.redirect(new URL("/app", origin));
+  const res = NextResponse.redirect(new URL("/app", origin));
+  res.cookies.delete({ name: OAUTH_STATE_COOKIE, path: "/" });
+  return res;
 }

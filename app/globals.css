@@ -106,6 +106,12 @@ body {
   outline-offset: 2px;
   border-radius: 4px;
 }
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[contenteditable]:focus-visible {
+  outline: none;
+}
 
 textarea {
   field-sizing: content;
