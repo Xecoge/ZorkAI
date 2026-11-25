@@ -8,7 +8,7 @@ import { NewProjectButton } from "@/components/projects-client";
 export default async function ProjectsPage() {
   const user = await getSessionUser();
   const rows = user
-    ? db.select().from(projects).where(eq(projects.userId, user.id)).orderBy(desc(projects.createdAt)).all()
+    ? await db.select().from(projects).where(eq(projects.userId, user.id)).orderBy(desc(projects.createdAt))
     : [];
 
   return (

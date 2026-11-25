@@ -10,6 +10,6 @@ export async function DELETE(_req: Request, { params }: Params) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  db.delete(generations).where(and(eq(generations.id, id), eq(generations.userId, user.id))).run();
+  await db.delete(generations).where(and(eq(generations.id, id), eq(generations.userId, user.id)));
   return NextResponse.json({ ok: true });
 }

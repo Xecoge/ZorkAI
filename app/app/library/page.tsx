@@ -7,13 +7,12 @@ import { getSessionUser } from "@/lib/auth";
 export default async function LibraryPage() {
   const user = await getSessionUser();
   const rows = user
-    ? db
+    ? await db
         .select()
         .from(chats)
         .where(and(eq(chats.userId, user.id), eq(chats.private, 0)))
         .orderBy(desc(chats.updatedAt))
         .limit(60)
-        .all()
     : [];
 
   return (

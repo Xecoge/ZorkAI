@@ -22,6 +22,6 @@ export async function PATCH(req: NextRequest) {
   if (typeof body.theme === "string" && ["system", "light", "dark"].includes(body.theme)) patch.theme = body.theme;
   if (typeof body.customInstructions === "string") patch.customInstructions = body.customInstructions.slice(0, 4000);
   if (typeof body.language === "string" && body.language.trim()) patch.language = body.language.trim().slice(0, 40);
-  if (Object.keys(patch).length) db.update(settings).set(patch).where(eq(settings.userId, user.id)).run();
+  if (Object.keys(patch).length) await db.update(settings).set(patch).where(eq(settings.userId, user.id));
   return NextResponse.json({ settings: await ensureSettings(user.id) });
 }

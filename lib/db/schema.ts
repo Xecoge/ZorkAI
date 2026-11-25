@@ -1,38 +1,41 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { pgTable, text, integer, bigint, index } from "drizzle-orm/pg-core";
 
-export const users = sqliteTable("users", {
+// Schema for Supabase Postgres. Timestamps are epoch milliseconds (number) and
+// boolean flags are integers, matching the previous SQLite values so existing
+// data and API payloads keep the same shape.
+export const users = pgTable("users", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
   avatarColor: text("avatar_color").notNull().default("#1084fe"),
   plan: text("plan").notNull().default("free"),
-  createdAt: integer("created_at").notNull().$defaultFn(() => Date.now()),
+  createdAt: bigint("created_at", { mode: "number" }).notNull(),
 });
 
-export const sessions = sqliteTable(
+export const sessions = pgTable(
   "sessions",
   {
     token: text("token").primaryKey(),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    expiresAt: integer("expires_at").notNull(),
+    expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
   },
   (t) => [index("sessions_user_idx").on(t.userId)],
 );
 
-export const projects = sqliteTable(
+export const projects = pgTable(
   "projects",
   {
     id: text("id").primaryKey(),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     instructions: text("instructions").notNull().default(""),
-    createdAt: integer("created_at").notNull().$defaultFn(() => Date.now()),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
   },
   (t) => [index("projects_user_idx").on(t.userId)],
 );
 
-export const chats = sqliteTable(
+export const chats = pgTable(
   "chats",
   {
     id: text("id").primaryKey(),
@@ -41,13 +44,13 @@ export const chats = sqliteTable(
     title: text("title").notNull().default("New chat"),
     mode: text("mode").notNull().default("fast"),
     private: integer("private").notNull().default(0),
-    createdAt: integer("created_at").notNull().$defaultFn(() => Date.now()),
-    updatedAt: integer("updated_at").notNull().$defaultFn(() => Date.now()),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
   },
   (t) => [index("chats_user_idx").on(t.userId), index("chats_project_idx").on(t.projectId)],
 );
 
-export const messages = sqliteTable(
+export const messages = pgTable(
   "messages",
   {
     id: text("id").primaryKey(),
@@ -56,12 +59,12 @@ export const messages = sqliteTable(
     content: text("content").notNull(),
     mode: text("mode"),
     sources: integer("sources"),
-    createdAt: integer("created_at").notNull().$defaultFn(() => Date.now()),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
   },
   (t) => [index("messages_chat_idx").on(t.chatId)],
 );
 
-export const settings = sqliteTable("settings", {
+export const settings = pgTable("settings", {
   userId: text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
   theme: text("theme").notNull().default("system"),
   wrapCode: integer("wrap_code").notNull().default(0),
@@ -74,14 +77,14 @@ export const settings = sqliteTable("settings", {
   language: text("language").notNull().default("Auto"),
 });
 
-export const generations = sqliteTable(
+export const generations = pgTable(
   "generations",
   {
     id: text("id").primaryKey(),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     prompt: text("prompt").notNull(),
     kind: text("kind").notNull().default("image"),
-    createdAt: integer("created_at").notNull().$defaultFn(() => Date.now()),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
   },
   (t) => [index("generations_user_idx").on(t.userId)],
 );

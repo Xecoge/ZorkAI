@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { and, desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db/client";
+import { db, one } from "@/lib/db/client";
 import { chats, projects } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/auth";
 
@@ -9,14 +9,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const user = await getSessionUser();
   if (!user) notFound();
-  const project = db.select().from(projects).where(and(eq(projects.id, id), eq(projects.userId, user.id))).get();
+  const project = await one(db.select().from(projects).where(and(eq(projects.id, id), eq(projects.userId, user.id))));
   if (!project) notFound();
-  const chatRows = db
+  const chatRows = await db
     .select()
     .from(chats)
     .where(and(eq(chats.userId, user.id), eq(chats.projectId, id)))
-    .orderBy(desc(chats.updatedAt))
-    .all();
+    .orderBy(desc(chats.updatedAt));
 
   const ago = (ts: number) => {
     const mins = Math.round((Date.now() - ts) / 60000);

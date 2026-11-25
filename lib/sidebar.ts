@@ -4,19 +4,17 @@ import { getSessionUser } from "@/lib/auth";
 import { desc, eq, and } from "drizzle-orm";
 
 export async function loadSidebarData(userId: string) {
-  const chatRows = db
+  const chatRows = await db
     .select({ id: chats.id, title: chats.title, updatedAt: chats.updatedAt, projectId: chats.projectId })
     .from(chats)
     .where(and(eq(chats.userId, userId), eq(chats.private, 0)))
     .orderBy(desc(chats.updatedAt))
-    .limit(40)
-    .all();
-  const projectRows = db
+    .limit(40);
+  const projectRows = await db
     .select({ id: projects.id, name: projects.name })
     .from(projects)
     .where(eq(projects.userId, userId))
-    .orderBy(desc(projects.createdAt))
-    .all();
+    .orderBy(desc(projects.createdAt));
   return { chats: chatRows, projects: projectRows };
 }
 

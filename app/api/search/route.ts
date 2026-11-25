@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { and, desc, eq, like, or } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { chats, messages, projects } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/auth";
@@ -13,31 +13,28 @@ export async function GET(req: NextRequest) {
   if (!q) return NextResponse.json({ chats: [], messages: [], projects: [] });
   const pattern = `%${q.replace(/[%_]/g, "")}%`;
 
-  const chatRows = db
+  const chatRows = await db
     .select()
     .from(chats)
-    .where(and(eq(chats.userId, user.id), like(chats.title, pattern)))
+    .where(and(eq(chats.userId, user.id), ilike(chats.title, pattern)))
     .orderBy(desc(chats.updatedAt))
-    .limit(20)
-    .all();
+    .limit(20);
 
-  const myChatIds = db.select({ id: chats.id }).from(chats).where(eq(chats.userId, user.id)).all().map((c) => c.id);
+  const myChatIds = (await db.select({ id: chats.id }).from(chats).where(eq(chats.userId, user.id))).map((c) => c.id);
   const messageRows = myChatIds.length
-    ? db
+    ? await db
         .select({ id: messages.id, chatId: messages.chatId, content: messages.content, createdAt: messages.createdAt })
         .from(messages)
-        .where(and(or(...myChatIds.map((id) => eq(messages.chatId, id))), like(messages.content, pattern)))
+        .where(and(inArray(messages.chatId, myChatIds), ilike(messages.content, pattern)))
         .orderBy(desc(messages.createdAt))
         .limit(20)
-        .all()
     : [];
 
-  const projectRows = db
+  const projectRows = await db
     .select()
     .from(projects)
-    .where(and(eq(projects.userId, user.id), like(projects.name, pattern)))
-    .limit(10)
-    .all();
+    .where(and(eq(projects.userId, user.id), ilike(projects.name, pattern)))
+    .limit(10);
 
   return NextResponse.json({ chats: chatRows, messages: messageRows, projects: projectRows });
 }

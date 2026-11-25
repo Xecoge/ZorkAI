@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { and, asc, eq } from "drizzle-orm";
-import { db } from "@/lib/db/client";
+import { db, one } from "@/lib/db/client";
 import { chats, messages, projects } from "@/lib/db/schema";
 import { getSessionUser, newId } from "@/lib/auth";
 import { getProvider, normalizeMode } from "@/lib/ai/provider";
@@ -12,9 +12,9 @@ export async function GET(_req: Request, { params }: Params) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const chat = db.select().from(chats).where(and(eq(chats.id, id), eq(chats.userId, user.id))).get();
+  const chat = await one(db.select().from(chats).where(and(eq(chats.id, id), eq(chats.userId, user.id))));
   if (!chat) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const rows = db.select().from(messages).where(eq(messages.chatId, id)).orderBy(asc(messages.createdAt)).all();
+  const rows = await db.select().from(messages).where(eq(messages.chatId, id)).orderBy(asc(messages.createdAt));
   return NextResponse.json({ chat, messages: rows });
 }
 
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const chat = db.select().from(chats).where(and(eq(chats.id, id), eq(chats.userId, user.id))).get();
+  const chat = await one(db.select().from(chats).where(and(eq(chats.id, id), eq(chats.userId, user.id))));
   if (!chat) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json().catch(() => null);
@@ -35,33 +35,33 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   if (regenerate) {
     // Drop the trailing assistant replies so the retry replaces them instead of duplicating.
-    const rows = db.select().from(messages).where(eq(messages.chatId, id)).orderBy(asc(messages.createdAt)).all();
+    const rows = await db.select().from(messages).where(eq(messages.chatId, id)).orderBy(asc(messages.createdAt));
     for (let i = rows.length - 1; i >= 0 && rows[i].role === "assistant"; i--) {
-      db.delete(messages).where(eq(messages.id, rows[i].id)).run();
+      await db.delete(messages).where(eq(messages.id, rows[i].id));
     }
   } else {
-    db.insert(messages)
-      .values({ id: newId("msg"), chatId: id, role: "user", content: content.slice(0, 16000), createdAt: now })
-      .run();
+    await db
+      .insert(messages)
+      .values({ id: newId("msg"), chatId: id, role: "user", content: content.slice(0, 16000), createdAt: now });
   }
 
   // Title a brand-new chat from the first user message.
   if (chat.title === "New chat") {
     const title = content.replace(/\s+/g, " ").trim().slice(0, 60) || "New chat";
-    db.update(chats).set({ title }).where(eq(chats.id, id)).run();
+    await db.update(chats).set({ title }).where(eq(chats.id, id));
   }
-  db.update(chats).set({ mode, updatedAt: Date.now() }).where(eq(chats.id, id)).run();
+  await db.update(chats).set({ mode, updatedAt: Date.now() }).where(eq(chats.id, id));
 
-  const history = db
-    .select({ role: messages.role, content: messages.content })
-    .from(messages)
-    .where(eq(messages.chatId, id))
-    .orderBy(asc(messages.createdAt))
-    .all()
-    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+  const history = (
+    await db
+      .select({ role: messages.role, content: messages.content })
+      .from(messages)
+      .where(eq(messages.chatId, id))
+      .orderBy(asc(messages.createdAt))
+  ).map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
   const project = chat.projectId
-    ? db.select().from(projects).where(eq(projects.id, chat.projectId)).get()
+    ? await one(db.select().from(projects).where(eq(projects.id, chat.projectId)))
     : null;
 
   let reply;
@@ -78,19 +78,17 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   const replyId = newId("msg");
-  db.insert(messages)
-    .values({
-      id: replyId,
-      chatId: id,
-      role: "assistant",
-      content: reply.content,
-      mode,
-      sources: reply.sources ?? null,
-      createdAt: Date.now(),
-    })
-    .run();
+  await db.insert(messages).values({
+    id: replyId,
+    chatId: id,
+    role: "assistant",
+    content: reply.content,
+    mode,
+    sources: reply.sources ?? null,
+    createdAt: Date.now(),
+  });
 
   return NextResponse.json({
-    message: db.select().from(messages).where(eq(messages.id, replyId)).get(),
+    message: await one(db.select().from(messages).where(eq(messages.id, replyId))),
   });
 }

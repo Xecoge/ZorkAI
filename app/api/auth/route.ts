@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { db } from "@/lib/db/client";
+import { db, one } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
-import { hashPassword, verifyPassword, createSession, destroySession, getSessionUser, newId, AVATAR_COLORS, ensureSettings } from "@/lib/auth";
+import { hashPassword, verifyPassword, createSession, destroySession, getSessionUser, newId, ensureProfile } from "@/lib/auth";
 
 function originOf(req: NextRequest): string {
   const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   if (action === "login") {
     const email = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
-    const row = email ? db.select().from(users).where(eq(users.email, email)).get() : null;
+    const row = email ? await one(db.select().from(users).where(eq(users.email, email))) : null;
     if (!row || !verifyPassword(password, row.passwordHash)) {
       if (body.form) {
         const url = new URL("/sign-in", originOf(req));
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
     await createSession(row.id);
-    await ensureSettings(row.id);
+    await ensureProfile({ id: row.id, email: row.email, name: row.name, passwordHash: row.passwordHash, avatarColor: row.avatarColor });
     return body.form
       ? NextResponse.redirect(new URL("/app", originOf(req)))
       : NextResponse.json({ ok: true });
@@ -75,15 +75,11 @@ export async function POST(req: NextRequest) {
     if (password.length < 8) {
       return body.form ? NextResponse.redirect(new URL("/sign-up?authError=Password+must+be+at+least+8+characters", originOf(req))) : NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
     }
-    if (db.select().from(users).where(eq(users.email, email)).get()) {
+    if (await one(db.select().from(users).where(eq(users.email, email)))) {
       return body.form ? NextResponse.redirect(new URL("/sign-up?authError=An+account+with+this+email+already+exists", originOf(req))) : NextResponse.json({ error: "An account with this email already exists." }, { status: 409 });
     }
     const id = newId("usr");
-    const color = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
-    db.insert(users)
-      .values({ id, email, name: name || email.split("@")[0], passwordHash: hashPassword(password), avatarColor: color })
-      .run();
-    await ensureSettings(id);
+    await ensureProfile({ id, email, name: name || email.split("@")[0], passwordHash: hashPassword(password) });
     await createSession(id);
     return body.form
       ? NextResponse.redirect(new URL("/app", originOf(req)))

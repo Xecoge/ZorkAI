@@ -1,12 +1,10 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { db } from "@/lib/db/client";
+import { db, one } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
-import { createSession, hashPassword, newId } from "@/lib/auth";
+import { createSession, newId, ensureProfile } from "@/lib/auth";
 import { OAUTH_STATE_COOKIE, providerConfig, originOf, decodeJwtPayload } from "@/lib/oauth";
-
-const AVATAR_COLORS = ["#1084fe", "#7c5cff", "#0ea472", "#e0703a", "#c23c8f"];
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ provider: string }> }) {
   const { provider } = await ctx.params;
@@ -72,18 +70,14 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ provider: s
   if (!email) return fail("email");
 
   // Sign in the matching account, otherwise create one for this OAuth identity.
-  const existing = await db.select().from(users).where(eq(users.email, email)).get();
+  // ensureProfile provisions the Supabase profile + settings rows for new users
+  // and backfills them for existing ones, so both resolve to the same profile.
+  const existing = await one(db.select().from(users).where(eq(users.email, email)));
   let userId = existing?.id;
   if (!userId) {
     userId = newId("usr");
-    await db.insert(users).values({
-      id: userId,
-      email,
-      name,
-      passwordHash: hashPassword(newId("oauth") + newId("salt")),
-      avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
-    });
   }
+  await ensureProfile({ id: userId, email, name });
   await createSession(userId);
 
   const res = NextResponse.redirect(new URL("/app", origin));
