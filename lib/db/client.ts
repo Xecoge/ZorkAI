@@ -6,7 +6,13 @@ import * as schema from "./schema";
 // (Supabase → Project Settings → Database → Connection string, pooled port 6543
 // for serverless hosts). Sessions, profiles, chats and messages are shared
 // across devices through this one database.
-const url = process.env.DATABASE_URL;
+// DATABASE_URL is preferred; Vercel's Supabase marketplace integration injects
+// the same connection string under POSTGRES_URL / STORAGE_POSTGRES_URL, so
+// accept those too before failing.
+const url =
+  process.env.DATABASE_URL ||
+  process.env.POSTGRES_URL ||
+  process.env.STORAGE_POSTGRES_URL;
 if (!url) {
   throw new Error(
     "DATABASE_URL is not set. Point it at your Supabase Postgres connection string.",
