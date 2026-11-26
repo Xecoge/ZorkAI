@@ -26,7 +26,7 @@ const SYSTEM_PROMPT =
   "You are Xecoge, a helpful AI assistant in a premium chat app. Answer in clean markdown with headings, lists, tables and fenced code blocks where useful. Be concise and accurate. Reply in the language the user writes in.";
 
 function authHeaders(): HeadersInit {
-  const key = process.env.MLAI_API_KEY;
+  const key = (process.env.MLAI_API_KEY || "").trim();
   if (!key) throw new Error("MLAI_API_KEY is not configured");
   return {
     "Content-Type": "application/json",
