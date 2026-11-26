@@ -161,11 +161,11 @@ export function AppShell({ user, initialSettings, children }: {
         <div className="flex-1 flex flex-col min-w-0 bg-bg relative">
           {/* Mobile top bar — a real header row so page content never collides with it */}
           <header className="md:hidden h-14 shrink-0 flex items-center gap-1 px-3">
-            <button onClick={() => setMobileNav(true)} aria-label="Open menu" className="w-10 h-10 grid place-items-center rounded-xl hover:bg-hover text-secondary transition-colors">
+            <button onClick={() => setMobileNav(true)} aria-label="Open menu" className="w-10 h-10 shrink-0 grid place-items-center rounded-xl hover:bg-hover text-secondary transition-colors">
               <PanelLeft className="w-[18px] h-[18px]" />
             </button>
-            <ZorkLogo height={26} className="ml-1" />
-            <button onClick={() => setSearchOpen(true)} aria-label="Search" className="ml-auto w-10 h-10 grid place-items-center rounded-xl hover:bg-hover text-secondary transition-colors">
+            <ZorkLogo height={26} className="ml-1 min-w-0" />
+            <button onClick={() => setSearchOpen(true)} aria-label="Search" className="ml-auto w-10 h-10 shrink-0 grid place-items-center rounded-xl hover:bg-hover text-secondary transition-colors">
               <Search className="w-[18px] h-[18px]" />
             </button>
           </header>

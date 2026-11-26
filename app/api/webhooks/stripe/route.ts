@@ -25,7 +25,7 @@ function verifyStripeSignature(payload: string, header: string | null, secret: s
 }
 
 async function activateSubscription(userId: string, planId: PlanId, ref: string, amountCents: number) {
-  if (!(planId in PLANS) || planId === "free") return;
+  if (!(planId in PLANS) || planId === "free" || planId === "xmax") return;
   const now = Date.now();
   const renewsAt = now + 30 * 24 * 60 * 60 * 1000;
   const existing = await one(

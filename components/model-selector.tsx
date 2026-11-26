@@ -35,11 +35,11 @@ export function ModelSelector({  model,
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="xq-mode-btn h-8 px-2.5 flex items-center gap-1.5 rounded-full border border-line text-[13px] font-medium hover:bg-hover transition-colors"
+        className="xq-mode-btn h-8 px-2.5 min-w-0 max-w-[44vw] min-[420px]:max-w-none flex items-center gap-1.5 rounded-full border border-line text-[13px] font-medium hover:bg-hover transition-colors"
       >
-        <Zap className="xq-mode-icon w-3.5 h-3.5 text-accent" />
-        {current.name}
-        <ChevronDown className={`w-3.5 h-3.5 text-tertiary transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        <Zap className="xq-mode-icon w-3.5 h-3.5 shrink-0 text-accent" />
+        <span className="truncate">{current.name}</span>
+        <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-tertiary transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
         <div

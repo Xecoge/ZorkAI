@@ -4,14 +4,16 @@ import { db, one } from "@/lib/db/client";
 import { billingHistory, subscriptions } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/auth";
 import { PLANS, type PlanId } from "@/lib/ai/config";
-import { ensureCredits, monthlyModelUsage, recentTransactions } from "@/lib/credits";
+import { getSummary, monthlyModelUsage, recentTransactions } from "@/lib/credits";
 
 // Billing & Plan dashboard — every number comes from the database.
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const credits = await ensureCredits(user.id);
+  // Xecoge Max rows carry unlimited=1 and must never be touched by the
+  // monthly-allowance renewal, which would reset their plan row.
+  const credits = await getSummary(user.id);
   const planCfg = PLANS[credits.plan as PlanId];
   const sub = await one(
     db.select().from(subscriptions).where(eq(subscriptions.userId, user.id)).orderBy(desc(subscriptions.createdAt)),

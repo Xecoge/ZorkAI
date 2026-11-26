@@ -2,11 +2,11 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { and, asc, eq } from "drizzle-orm";
 import { db, one } from "@/lib/db/client";
-import { chats, messages, projects } from "@/lib/db/schema";
+import { chats, messages, projects, userCredits } from "@/lib/db/schema";
 import { getSessionUser, newId } from "@/lib/auth";
 import { normalizeMode, providerConfigured, streamCompletion, type ChatMessage } from "@/lib/ai/provider";
 import { creditsFor, getModel, planAllows, PLANS, type PlanId } from "@/lib/ai/config";
-import { ensureCredits, refundHold, reserveCredits, settleCredits } from "@/lib/credits";
+import { ensureCredits, getSummary, refundHold, reserveCredits, settleCredits } from "@/lib/credits";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -37,7 +37,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!content && !regenerate) return NextResponse.json({ error: "Message is empty." }, { status: 400 });
 
   // --- Model resolution and access check (server-side, registry-driven) ---
-  const credits = await ensureCredits(user.id);
+  // Xecoge Max rows (unlimited=1) bypass ensureCredits: the monthly renewal
+  // must never rewrite their plan or allowance.
+  const [creditsRow] = await db.select().from(userCredits).where(eq(userCredits.userId, user.id)).limit(1);
+  const credits = creditsRow?.unlimited === 1 ? await getSummary(user.id) : await ensureCredits(user.id);
   const plan: PlanId = (credits.plan as PlanId) in PLANS ? (credits.plan as PlanId) : "free";
   const requestedModel = typeof body?.model === "string" ? body.model : null;
   const model = (requestedModel && getModel(requestedModel)) || getModel("zai/glm-5.3-flash")!;

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => null);
   const planId = String(body?.plan || "") as PlanId;
-  if (!(planId in PLANS) || planId === "free") {
+  if (!(planId in PLANS) || planId === "free" || planId === "xmax") {
     return NextResponse.json({ error: "Unknown plan." }, { status: 400 });
   }
   const plan = PLANS[planId];

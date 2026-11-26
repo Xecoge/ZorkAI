@@ -5,7 +5,7 @@
 
 export const MLAI_BASE_URL = process.env.MLAI_BASE_URL ?? "https://api.ai.ml/v1";
 
-export type PlanId = "free" | "plus" | "pro" | "max";
+export type PlanId = "free" | "plus" | "pro" | "max" | "xmax";
 
 export type ModelEntry = {
   id: string; // provider model id used for routing
@@ -200,9 +200,29 @@ export const PLANS: Record<PlanId, PlanConfig> = {
       "Highest rate limits",
     ],
   },
+  // Exclusive internal subscription. Never sold, never shown in upgrade UI;
+  // assigned only through the admin endpoint, paired with user_credits.unlimited=1.
+  xmax: {
+    id: "xmax",
+    name: "Xecoge Max",
+    priceCents: 0,
+    promoPercent: 0,
+    monthlyCredits: 0, // ignored: unlimited flag on user_credits governs balance
+    monthlyTokens: -1,
+    buildRuns: -1,
+    requestsPerDay: -1,
+    maxOutputTokens: 32768,
+    blurb: "Exclusive internal plan — unlimited platform credits",
+    features: [
+      "< Unlimited Credits >",
+      "All verified AI models",
+      "Unlimited Build runs",
+      "All premium platform features",
+    ],
+  },
 };
 
-export const PLAN_ORDER: PlanId[] = ["free", "plus", "pro", "max"];
+export const PLAN_ORDER: PlanId[] = ["free", "plus", "pro", "max", "xmax"];
 
 export function planAllows(plan: PlanId, model: ModelEntry): boolean {
   return PLAN_ORDER.indexOf(plan) >= PLAN_ORDER.indexOf(model.minPlan);

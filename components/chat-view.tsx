@@ -154,7 +154,7 @@ export function ChatView({ chat, initialMessages }: { chat: { id: string; title:
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-[764px] mx-auto px-4 pt-6 pb-40 flex flex-col gap-7">
+          <div className="max-w-[764px] mx-auto px-4 pt-6 pb-6 flex flex-col gap-7">
             {messages.map((m) =>
               m.role === "user" ? (
                 <div key={m.id} className="flex justify-end">
@@ -178,8 +178,8 @@ export function ChatView({ chat, initialMessages }: { chat: { id: string; title:
       )}
 
       {!empty && (
-        <div className="absolute bottom-0 inset-x-0 pb-4 pt-8 bg-gradient-to-t from-bg via-bg/95 to-transparent pointer-events-none">
-          <div className="max-w-[764px] mx-auto px-4 pointer-events-auto">
+        <div className="shrink-0 bg-bg pt-2 px-4 pb-[max(env(safe-area-inset-bottom),12px)]">
+          <div className="max-w-[764px] mx-auto">
             <Composer onSend={(v) => send(v)} busy={busy} mode={mode} setMode={setMode} modelSelector={<ModelSelector model={model} setModel={setModel} plan={plan} />} />
           </div>
         </div>
@@ -190,13 +190,13 @@ export function ChatView({ chat, initialMessages }: { chat: { id: string; title:
 
 function TopBar({ title, privateFlag, onSearch }: { title: string; privateFlag: number; onSearch: () => void }) {
   return (
-    <div className="absolute top-3 right-4 z-20 flex items-center gap-1.5 md:right-5">
+    <div className="relative z-20 flex items-center justify-end gap-1.5 h-12 px-3 shrink-0 md:absolute md:top-3 md:right-5 md:h-auto md:px-0">
       {privateFlag ? (
         <span className="h-8 px-3 inline-flex items-center gap-1.5 rounded-full border border-line text-[13px] text-secondary bg-bg">
-          <Info className="w-3.5 h-3.5" /> Private
+          <Info className="w-3.5 h-3.5 shrink-0" /> Private
         </span>
       ) : null}
-      <button onClick={onSearch} aria-label="Search" className="w-9 h-9 grid place-items-center rounded-full hover:bg-hover text-secondary transition-colors">
+      <button onClick={onSearch} aria-label="Search" className="w-9 h-9 shrink-0 grid place-items-center rounded-full hover:bg-hover text-secondary transition-colors">
         <PanelRight className="w-[17px] h-[17px]" />
       </button>
     </div>

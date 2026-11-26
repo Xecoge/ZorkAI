@@ -49,7 +49,7 @@ export function Composer({ onSend, busy, mode, setMode, modelSelector }: {
 
   return (
     <div className="w-full max-w-[756px] mx-auto relative">
-      <div className="flex items-end gap-2 rounded-[28px] bg-bg border border-line shadow-card pl-3 pr-3 py-2.5 focus-within:shadow-pop transition-shadow">
+      <div className="flex flex-wrap items-end gap-2 rounded-[28px] bg-bg border border-line shadow-card pl-3 pr-3 py-2.5 focus-within:shadow-pop transition-shadow">
         <div className="relative">
           <button
             type="button"
@@ -82,12 +82,12 @@ export function Composer({ onSend, busy, mode, setMode, modelSelector }: {
               submit();
             }
           }}
-          placeholder="Ask, create images, or build anything..."
+          placeholder="Ask anything..."
           aria-label="Message"
-          className="flex-1 bg-transparent outline-none text-[15px] placeholder:text-tertiary resize-none py-2.5 max-h-[220px] min-w-0"
+          className="flex-1 bg-transparent outline-none text-[15px] placeholder:text-tertiary resize-none py-2.5 max-h-[220px] min-w-[160px]"
         />
 
-        <div className="flex items-center gap-1 pb-0.5 shrink-0">
+        <div className="flex items-center gap-1 pb-0.5 shrink-0 ml-auto max-w-full">
           {modelSelector}
           <div className="relative">
             <button

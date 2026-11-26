@@ -52,17 +52,25 @@ export function BillingPane({ onUpgrade }: { onUpgrade: () => void }) {
           <div className="min-w-0">
             <p className="text-[16px] font-semibold">
               {plan.name}
-              {plan.unlimited && <span className="ml-2 text-[11px] font-medium text-accent border border-accent/40 rounded-full px-2 py-0.5 align-middle">Unlimited Credits</span>}
+              {plan.id === "xmax" ? (
+                <span className="ml-2 text-[11px] font-medium text-accent border border-accent/40 rounded-full px-2 py-0.5 align-middle">&lt; Unlimited Credits &gt;</span>
+              ) : plan.unlimited ? (
+                <span className="ml-2 text-[11px] font-medium text-accent border border-accent/40 rounded-full px-2 py-0.5 align-middle">Unlimited Credits</span>
+              ) : null}
             </p>
             <p className="text-[13px] text-tertiary">
-              {plan.priceCents > 0 ? `${money(plan.priceCents)}/month · ` : "Free · "}
-              <span className="capitalize">{plan.status}</span>
-              {plan.renewsAt ? ` · renews ${date(plan.renewsAt)}` : ""}
+              {plan.id === "xmax"
+                ? "Exclusive internal plan"
+                : plan.priceCents > 0 ? `${money(plan.priceCents)}/month · ` : "Free · "}
+              {plan.id !== "xmax" && <span className="capitalize">{plan.status}</span>}
+              {plan.id !== "xmax" && plan.renewsAt ? ` · renews ${date(plan.renewsAt)}` : ""}
             </p>
           </div>
-          <button onClick={onUpgrade} className="ml-auto h-9 px-4 rounded-full bg-text text-bg text-[13px] font-medium hover:opacity-85 transition-opacity">
-            {plan.id === "free" ? "Upgrade" : "Change plan"}
-          </button>
+          {plan.id !== "xmax" && (
+            <button onClick={onUpgrade} className="ml-auto h-9 px-4 rounded-full bg-text text-bg text-[13px] font-medium hover:opacity-85 transition-opacity">
+              {plan.id === "free" ? "Upgrade" : "Change plan"}
+            </button>
+          )}
         </div>
       </section>
 
@@ -70,7 +78,7 @@ export function BillingPane({ onUpgrade }: { onUpgrade: () => void }) {
         <p className="text-[13px] text-tertiary mb-2 flex items-center gap-1.5"><Coins className="w-3.5 h-3.5" /> Credit balance</p>
         <div className="rounded-2xl border border-line px-4 py-4">
           {credits.unlimited ? (
-            <p className="text-[15px] font-medium text-accent">Unlimited Credits</p>
+            <p className="text-[15px] font-medium text-accent">{plan.id === "xmax" ? "< Unlimited Credits >" : "Unlimited Credits"}</p>
           ) : (
             <>
               <div className="flex items-baseline justify-between gap-3 text-[14px]">
