@@ -224,3 +224,107 @@ html.reduce-motion *::after {
   padding-left: 14px;
   color: var(--text-secondary);
 }
+
+/* --- Xecoge ghost identity ------------------------------------------- */
+@keyframes xq-ghost-float {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50% { transform: translateY(-2.5px) rotate(6deg); }
+}
+@keyframes xq-ghost-glow {
+  0%, 100% { opacity: 1; filter: brightness(1); }
+  50% { opacity: 0.72; filter: brightness(1.35); }
+}
+.xq-ghost {
+  color: var(--text-secondary);
+  animation: xq-ghost-float 2.6s ease-in-out infinite;
+}
+.xq-ghost-wrap { position: relative; }
+.xq-ghost-wrap .xq-ghost { animation: xq-ghost-float 2.6s ease-in-out infinite, xq-ghost-glow 2.6s ease-in-out infinite; }
+.xq-intensity-subtle .xq-ghost { animation-duration: 3.4s; }
+.xq-intensity-strong .xq-ghost { animation-duration: 1.8s; }
+
+@keyframes xq-orbit-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.xq-orbit {
+  position: absolute;
+  inset: 0;
+  animation: xq-orbit-spin 1.6s linear infinite;
+}
+.xq-orbit-dot {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.xq-intensity-subtle .xq-orbit { animation-duration: 2.4s; opacity: 0.6; }
+.xq-intensity-strong .xq-orbit { animation-duration: 1.1s; }
+
+/* Status label transitions: fade + slight vertical movement */
+@keyframes xq-status-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes xq-status-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-3px); }
+}
+.xq-status-enter { animation: xq-status-in 180ms ease-out both; }
+.xq-status-leave { animation: xq-status-out 160ms ease-in both; }
+
+/* --- Mode picker ------------------------------------------------------ */
+.xq-mode-btn { transition: background-color 160ms ease-out, color 160ms ease-out; }
+.xq-mode-btn .xq-mode-icon { transition: transform 180ms ease-out; }
+.xq-mode-btn:hover .xq-mode-icon { transform: scale(1.08); }
+.xq-mode-active {
+  animation: xq-mode-pop 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes xq-mode-pop {
+  0% { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
+/* --- Settings sections & upgrade modal -------------------------------- */
+@keyframes xq-section-in {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes xq-section-back {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.xq-section-enter { animation: xq-section-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.xq-section-back { animation: xq-section-back 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes xq-modal-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes xq-modal-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(10px) scale(0.98); }
+}
+.xq-modal-enter { animation: xq-modal-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.xq-modal-exit { animation: xq-modal-out 180ms ease-in both; }
+
+@keyframes xq-bar-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.xq-bar-fill {
+  transform-origin: left;
+  animation: xq-bar-grow 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes xq-fade-toggle {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+.xq-toggle-track { transition: background-color 180ms ease-out; }
+.xq-toggle-thumb { transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1); }

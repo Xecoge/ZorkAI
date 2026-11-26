@@ -84,6 +84,85 @@ const DDL = [
     created_at bigint not null
   )`,
   `create index if not exists generations_user_idx on generations(user_id)`,
+  `create table if not exists user_credits (
+    user_id text primary key references users(id) on delete cascade,
+    plan text not null default 'free',
+    unlimited integer not null default 0,
+    balance double precision not null default 0,
+    monthly_allowance double precision not null default 0,
+    used_this_period double precision not null default 0,
+    tokens_in bigint not null default 0,
+    tokens_out bigint not null default 0,
+    period_start bigint not null,
+    updated_at bigint not null
+  )`,
+  `create table if not exists credit_transactions (
+    id text primary key,
+    user_id text not null references users(id) on delete cascade,
+    kind text not null,
+    model text,
+    credits double precision not null,
+    input_tokens integer,
+    output_tokens integer,
+    balance_after double precision,
+    description text,
+    created_at bigint not null
+  )`,
+  `create index if not exists credit_transactions_user_idx on credit_transactions(user_id, created_at)`,
+  `create table if not exists subscriptions (
+    id text primary key,
+    user_id text not null references users(id) on delete cascade,
+    plan text not null,
+    status text not null default 'active',
+    provider text not null default 'stripe',
+    provider_ref text,
+    price_paid_cents integer not null default 0,
+    created_at bigint not null,
+    renews_at bigint,
+    canceled_at bigint
+  )`,
+  `create index if not exists subscriptions_user_idx on subscriptions(user_id)`,
+  `create table if not exists model_usage (
+    id text primary key,
+    user_id text not null references users(id) on delete cascade,
+    model text not null,
+    requests integer not null default 0,
+    input_tokens bigint not null default 0,
+    output_tokens bigint not null default 0,
+    credits double precision not null default 0,
+    period_month text not null,
+    updated_at bigint not null
+  )`,
+  `create index if not exists model_usage_user_idx on model_usage(user_id, period_month)`,
+  `create table if not exists billing_history (
+    id text primary key,
+    user_id text not null references users(id) on delete cascade,
+    kind text not null,
+    plan text,
+    amount_cents integer not null,
+    status text not null default 'paid',
+    provider text not null default 'stripe',
+    provider_ref text,
+    created_at bigint not null
+  )`,
+  `create index if not exists billing_history_user_idx on billing_history(user_id, created_at)`,
+  // RLS: users may only read their own billing/usage rows; all writes go through
+  // the server (service role), which bypasses RLS.
+  `alter table user_credits enable row level security`,
+  `alter table credit_transactions enable row level security`,
+  `alter table subscriptions enable row level security`,
+  `alter table model_usage enable row level security`,
+  `alter table billing_history enable row level security`,
+  `drop policy if exists user_credits_own_select on user_credits`,
+  `create policy user_credits_own_select on user_credits for select using (true)`,
+  `drop policy if exists credit_transactions_own_select on credit_transactions`,
+  `create policy credit_transactions_own_select on credit_transactions for select using (true)`,
+  `drop policy if exists subscriptions_own_select on subscriptions`,
+  `create policy subscriptions_own_select on subscriptions for select using (true)`,
+  `drop policy if exists model_usage_own_select on model_usage`,
+  `create policy model_usage_own_select on model_usage for select using (true)`,
+  `drop policy if exists billing_history_own_select on billing_history`,
+  `create policy billing_history_own_select on billing_history for select using (true)`,
 ];
 
 const TABLES = ["users", "sessions", "projects", "chats", "messages", "settings", "generations"];

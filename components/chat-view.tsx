@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowUpRight, Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, MoreHorizontal, BarChart3, X, PanelRight, Info } from "lucide-react";
+import { ArrowUpRight, Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, MoreHorizontal, BarChart3, X, PanelRight, Info, Image as ImageIcon, PenLine, Globe } from "lucide-react";
 import { Composer } from "./composer";
 import { Markdown } from "./markdown";
+import { ModelSelector } from "./model-selector";
+import { GhostStatus } from "./ghost";
 import { useShell, refreshChats } from "./app-shell";
+import { detectLang, type Lang, type StatusStage } from "@/lib/thinking";
 
 const FOLLOW_UPS = ["Analyze this in more depth", "Give me a concrete example", "Make it shorter", "What are the risks?"];
 
@@ -17,15 +20,35 @@ export function ChatView({ chat, initialMessages }: { chat: { id: string; title:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState(chat.mode);
+  const [model, setModel] = useState("zai/glm-5.3-flash");
+  const [models, setModels] = useState<{ id: string; name: string; allowed: boolean; minPlan: string; description: string; creditsPer1kIn: number; creditsPer1kOut: number }[]>([]);
+  const [plan, setPlan] = useState("free");
+  const [status, setStatus] = useState<{ stage: StatusStage; lang: Lang } | null>(null);
   const { settings, openSearch } = useShell();
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const sentInitial = useRef(false);
 
+  useEffect(() => {
+    fetch("/api/models")
+      .then((r) => r.json())
+      .then((d) => {
+        setModels(d.models ?? []);
+        setPlan(d.plan ?? "free");
+        if (d.models?.some((m: { id: string }) => m.id === model)) return;
+        const first = d.models?.find((m: { allowed: boolean }) => m.allowed);
+        if (first) setModel(first.id);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const send = useCallback(async (content: string, { regenerate = false }: { regenerate?: boolean } = {}) => {
     setError("");
     setBusy(true);
+    const lang = detectLang(content);
+    setStatus({ stage: "thinking", lang });
     if (!regenerate) {
       setMessages((m) => [...m, { id: `tmp_u_${Date.now()}`, role: "user", content, createdAt: Date.now() }]);
     } else {
@@ -36,23 +59,64 @@ export function ChatView({ chat, initialMessages }: { chat: { id: string; title:
       });
     }
     setMessages((m) => [...m, { id: "thinking", role: "assistant", content: "", thinking: true }]);
+    let replyId: string | null = null;
     try {
       const res = await fetch(`/api/chats/${chat.id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, regenerate, mode }),
+        body: JSON.stringify({ content, regenerate, mode, model }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
-      setMessages((m) => [...m.filter((x) => x.id !== "thinking"), data.message]);
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Something went wrong.");
+      }
+      // SSE: status → meta → delta… → done / error
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let done = false;
+      while (!done) {
+        const { done: rdDone, value } = await reader.read();
+        if (rdDone) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+        for (const part of parts) {
+          const evLine = part.split("\n").find((l) => l.startsWith("event: "));
+          const dataLine = part.split("\n").find((l) => l.startsWith("data: "));
+          if (!evLine || !dataLine) continue;
+          const event = evLine.slice(7).trim();
+          const payload = JSON.parse(dataLine.slice(6));
+          if (event === "status") {
+            setStatus((s) => ({ stage: payload.stage, lang: s?.lang ?? lang }));
+          } else if (event === "meta") {
+            replyId = payload.messageId;
+            setStatus((s) => ({ stage: "analyzing", lang: payload.lang === "ru" ? "ru" : s?.lang ?? "en" }));
+          } else if (event === "delta") {
+            setMessages((m) =>
+              m.map((x) =>
+                x.id === "thinking"
+                  ? { ...x, id: replyId ?? x.id, thinking: false, content: x.content + payload.text }
+                  : x,
+              ),
+            );
+          } else if (event === "done") {
+            done = true;
+          } else if (event === "error") {
+            throw new Error(payload.message || "The model failed to respond.");
+          }
+        }
+      }
+      setMessages((m) => m.filter((x) => x.id !== "thinking" || x.content));
       refreshChats();
     } catch (e) {
       setMessages((m) => m.filter((x) => x.id !== "thinking"));
       setError((e instanceof Error ? e.message : "") || "The reply failed to load. Try again.");
     } finally {
       setBusy(false);
+      setStatus(null);
     }
-  }, [chat.id, mode]);
+  }, [chat.id, mode, model]);
 
   // A prompt handed over from the logged-out landing page.
   useEffect(() => {
@@ -77,7 +141,7 @@ export function ChatView({ chat, initialMessages }: { chat: { id: string; title:
       {empty ? (
         <div className="flex-1 flex flex-col items-center justify-center px-4">
           <h1 className="text-[28px] font-semibold tracking-tight mb-7 text-center">What&apos;s on the agenda today?</h1>
-          <Composer onSend={(v) => send(v)} busy={busy} mode={mode} setMode={setMode} />
+          <Composer onSend={(v) => send(v)} busy={busy} mode={mode} setMode={setMode} modelSelector={<ModelSelector model={model} setModel={setModel} plan={plan} />} />
           {!!settings.showSuggestions ? (
             <div className="w-full max-w-[756px] mt-3 flex flex-col gap-1">
               {["Create an image", "Write or edit", "Search the web"].map((label) => (
@@ -99,7 +163,7 @@ export function ChatView({ chat, initialMessages }: { chat: { id: string; title:
                   </div>
                 </div>
               ) : (
-                <AssistantMessage key={m.id} message={m} onRegenerate={() => send("", { regenerate: true })} wrapCode={!!settings.wrapCode} />
+                <AssistantMessage key={m.id} message={m} onRegenerate={() => send("", { regenerate: true })} wrapCode={!!settings.wrapCode} status={busy && m.thinking ? status : null} />
               ),
             )}
             {error && (
@@ -116,7 +180,7 @@ export function ChatView({ chat, initialMessages }: { chat: { id: string; title:
       {!empty && (
         <div className="absolute bottom-0 inset-x-0 pb-4 pt-8 bg-gradient-to-t from-bg via-bg/95 to-transparent pointer-events-none">
           <div className="max-w-[764px] mx-auto px-4 pointer-events-auto">
-            <Composer onSend={(v) => send(v)} busy={busy} mode={mode} setMode={setMode} />
+            <Composer onSend={(v) => send(v)} busy={busy} mode={mode} setMode={setMode} modelSelector={<ModelSelector model={model} setModel={setModel} plan={plan} />} />
           </div>
         </div>
       )}
@@ -139,13 +203,17 @@ function TopBar({ title, privateFlag, onSearch }: { title: string; privateFlag: 
   );
 }
 
-function AssistantMessage({ message, onRegenerate, wrapCode }: { message: Msg; onRegenerate: () => void; wrapCode: boolean }) {
+function AssistantMessage({ message, onRegenerate, wrapCode, status }: { message: Msg; onRegenerate: () => void; wrapCode: boolean; status: { stage: StatusStage; lang: Lang } | null }) {
   const [copied, setCopied] = useState(false);
   const [vote, setVote] = useState<"up" | "down" | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   if (message.thinking) {
-    return (
+    return status ? (
+      <div className="rise-in py-1">
+        <GhostStatus stage={status.stage} lang={status.lang} />
+      </div>
+    ) : (
       <div className="flex items-center gap-2 text-[14px] text-secondary rise-in">
         <span className="flex gap-1">
           <span className="thinking-dot w-1.5 h-1.5 rounded-full bg-secondary inline-block" />
@@ -237,15 +305,16 @@ export function NewChatHome() {
       {!!settings.showSuggestions && (
         <div className="w-full max-w-[756px] mt-3 flex flex-col gap-1">
           {[
-            { icon: "🖼", label: "Create an image" },
-            { icon: "✏️", label: "Write or edit" },
-            { icon: "🌐", label: "Search the web" },
-          ].map(({ label }) => (
+            { icon: ImageIcon, label: "Create an image" },
+            { icon: PenLine, label: "Write or edit" },
+            { icon: Globe, label: "Search the web" },
+          ].map(({ icon: Icon, label }) => (
             <button
               key={label}
               onClick={() => send(label)}
               className="flex items-center gap-3 h-11 px-3 -ml-3 rounded-2xl text-left text-[15px] text-secondary hover:bg-hover transition-colors"
             >
+              <Icon className="w-[17px] h-[17px] shrink-0" />
               {label}
             </button>
           ))}

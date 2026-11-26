@@ -1,4 +1,4 @@
-import { pgTable, text, integer, bigint, index } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, bigint, doublePrecision, index } from "drizzle-orm/pg-core";
 
 // Schema for Supabase Postgres. Timestamps are epoch milliseconds (number) and
 // boolean flags are integers, matching the previous SQLite values so existing
@@ -87,4 +87,85 @@ export const generations = pgTable(
     createdAt: bigint("created_at", { mode: "number" }).notNull(),
   },
   (t) => [index("generations_user_idx").on(t.userId)],
+);
+
+// --- Billing, credits and model usage (added 2026-11-26) ---
+
+export const userCredits = pgTable("user_credits", {
+  userId: text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  plan: text("plan").notNull().default("free"),
+  unlimited: integer("unlimited").notNull().default(0),
+  balance: doublePrecision("balance").notNull().default(0),
+  monthlyAllowance: doublePrecision("monthly_allowance").notNull().default(0),
+  usedThisPeriod: doublePrecision("used_this_period").notNull().default(0),
+  tokensIn: bigint("tokens_in", { mode: "number" }).notNull().default(0),
+  tokensOut: bigint("tokens_out", { mode: "number" }).notNull().default(0),
+  periodStart: bigint("period_start", { mode: "number" }).notNull(),
+  updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+});
+
+export const creditTransactions = pgTable(
+  "credit_transactions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // grant | hold | charge | refund | subscription
+    model: text("model"),
+    credits: doublePrecision("credits").notNull(), // signed: negative = spent
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    balanceAfter: doublePrecision("balance_after"),
+    description: text("description"),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  },
+  (t) => [index("credit_transactions_user_idx").on(t.userId, t.createdAt)],
+);
+
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    plan: text("plan").notNull(), // plus | pro | max
+    status: text("status").notNull().default("active"), // active | canceled | past_due
+    provider: text("provider").notNull().default("stripe"),
+    providerRef: text("provider_ref"),
+    pricePaidCents: integer("price_paid_cents").notNull().default(0),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    renewsAt: bigint("renews_at", { mode: "number" }),
+    canceledAt: bigint("canceled_at", { mode: "number" }),
+  },
+  (t) => [index("subscriptions_user_idx").on(t.userId)],
+);
+
+export const modelUsage = pgTable(
+  "model_usage",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    requests: integer("requests").notNull().default(0),
+    inputTokens: bigint("input_tokens", { mode: "number" }).notNull().default(0),
+    outputTokens: bigint("output_tokens", { mode: "number" }).notNull().default(0),
+    credits: doublePrecision("credits").notNull().default(0),
+    periodMonth: text("period_month").notNull(), // e.g. 2026-11
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+  },
+  (t) => [index("model_usage_user_idx").on(t.userId, t.periodMonth)],
+);
+
+export const billingHistory = pgTable(
+  "billing_history",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // payment | refund | subscription_change
+    plan: text("plan"),
+    amountCents: integer("amount_cents").notNull(),
+    status: text("status").notNull().default("paid"), // paid | failed | refunded | pending
+    provider: text("provider").notNull().default("stripe"),
+    providerRef: text("provider_ref"),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  },
+  (t) => [index("billing_history_user_idx").on(t.userId, t.createdAt)],
 );

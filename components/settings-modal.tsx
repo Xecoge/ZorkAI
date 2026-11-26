@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { User, Sun, SlidersHorizontal, Bell, SlidersVertical, Plug, Library, Clock, ShieldCheck, Search, X, ChevronLeft, Sparkles } from "lucide-react";
+import { User, Sun, SlidersHorizontal, Bell, SlidersVertical, Plug, Library, Clock, ShieldCheck, Search, X, ChevronLeft, Sparkles, CreditCard, BadgePercent } from "lucide-react";
 import { useShell, type Settings } from "./app-shell";
+import { UpgradeModal } from "./upgrade-modal";
+import { BillingPane } from "./billing-pane";
 
 type Patch = (body: Partial<Settings>) => void;
 
 const PANES = [
   { id: "Account", icon: User, hint: "Name, email and plan" },
+  { id: "Billing & Plan", icon: CreditCard, hint: "Credits, usage and payments" },
   { id: "Appearance", icon: Sun, hint: "Theme and code display" },
   { id: "Behavior", icon: SlidersHorizontal, hint: "Motion and suggestions" },
   { id: "Notifications", icon: Bell, hint: "Task completion alerts" },
@@ -21,7 +24,7 @@ const PANES = [
 export function SettingsModal({ pane, setPane, onClose }: { pane: string; setPane: (p: string) => void; onClose: () => void }) {
   const { user, settings, setSettings, theme, setTheme } = useShell();
   const [filter, setFilter] = useState("");
-  const [tierNotice, setTierNotice] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   // Mobile drill-down: the nav list and a section never share the small screen.
   const [showSection, setShowSection] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -159,7 +162,8 @@ export function SettingsModal({ pane, setPane, onClose }: { pane: string; setPan
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 pb-6">
               <div key={pane} className="rise-in">
-                {pane === "Account" && <AccountPane user={user} />}
+                {pane === "Account" && <AccountPane user={user} onUpgrade={() => setUpgradeOpen(true)} />}
+                {pane === "Billing & Plan" && <BillingPane onUpgrade={() => setUpgradeOpen(true)} />}
                 {pane === "Appearance" && <AppearancePane settings={settings} patch={patch} theme={theme} setTheme={setTheme} />}
                 {pane === "Behavior" && (
                   <ToggleList
@@ -194,27 +198,27 @@ export function SettingsModal({ pane, setPane, onClose }: { pane: string; setPan
         </div>
 
         <div className="border-t border-line px-4 md:px-6 py-3 flex items-center gap-3 shrink-0">
-          <p className="text-[13px] font-medium whitespace-nowrap">Get 50% off Premium</p>
+          <span className="w-7 h-7 rounded-full grid place-items-center bg-accent/15 text-accent shrink-0" aria-hidden="true">
+            <BadgePercent className="w-4 h-4" />
+          </span>
+          <p className="text-[13px] font-medium whitespace-nowrap">Get 50% OFF Premium</p>
           <p className="text-[13px] text-tertiary truncate hidden sm:block">Fewer rate limits, more capabilities</p>
           <button
-            onClick={() => setTierNotice(true)}
+            onClick={() => setUpgradeOpen(true)}
             aria-label="Upgrade to Premium"
             className="ml-auto h-8 px-4 rounded-full bg-[#1a1a1a] dark:bg-white text-white dark:text-[#1a1a1a] text-[13px] font-medium hover:opacity-85 transition-opacity"
           >
             Upgrade
           </button>
         </div>
-        {tierNotice && (
-          <div className="px-4 md:px-6 pb-3 -mt-1 text-[12px] text-tertiary" role="status">
-            Billing is not enabled on this deployment — every plan currently has the same limits.
-          </div>
-        )}
       </div>
+
+      <UpgradeModal open={upgradeOpen} currentPlan={user?.plan ?? "free"} onClose={() => setUpgradeOpen(false)} />
     </div>
   );
 }
 
-function AccountPane({ user }: { user: { name: string; email: string; plan: string; avatarColor?: string } }) {
+function AccountPane({ user, onUpgrade }: { user: { name: string; email: string; plan: string; avatarColor?: string }; onUpgrade: () => void }) {
   const initial = (user.name || user.email || "?").trim().charAt(0).toUpperCase();
   return (
     <div className="pt-2">
@@ -236,6 +240,18 @@ function AccountPane({ user }: { user: { name: string; email: string; plan: stri
         <Row label="Email" value={user.email || "—"} />
         <Row label="Plan" value={user.plan === "free" ? "Free" : user.plan} />
       </div>
+      {user.plan === "free" && (
+        <button
+          onClick={onUpgrade}
+          className="mt-4 w-full flex items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3.5 text-left hover:bg-accent/15 transition-colors"
+        >
+          <span>
+            <span className="block text-[14px] font-medium">Get 50% OFF Premium</span>
+            <span className="block text-[12px] text-tertiary">Frontier models, more credits, higher limits</span>
+          </span>
+          <Sparkles className="w-4 h-4 text-accent shrink-0" aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
 }

@@ -4,9 +4,15 @@ import { and, asc, eq } from "drizzle-orm";
 import { db, one } from "@/lib/db/client";
 import { chats, messages, projects } from "@/lib/db/schema";
 import { getSessionUser, newId } from "@/lib/auth";
-import { getProvider, normalizeMode } from "@/lib/ai/provider";
+import { normalizeMode, providerConfigured, streamCompletion, type ChatMessage } from "@/lib/ai/provider";
+import { creditsFor, getModel, planAllows, PLANS, type PlanId } from "@/lib/ai/config";
+import { ensureCredits, refundHold, reserveCredits, settleCredits } from "@/lib/credits";
 
 type Params = { params: Promise<{ id: string }> };
+
+function sse(event: string, data: unknown): Uint8Array {
+  return new TextEncoder().encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
 
 export async function GET(_req: Request, { params }: Params) {
   const user = await getSessionUser();
@@ -25,16 +31,27 @@ export async function POST(req: NextRequest, { params }: Params) {
   const chat = await one(db.select().from(chats).where(and(eq(chats.id, id), eq(chats.userId, user.id))));
   if (!chat) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const body = await req.json().catch(() => null);
+  const body = (await req.json().catch(() => null)) as { content?: unknown; regenerate?: unknown; mode?: unknown; model?: unknown } | null;
   const regenerate = Boolean(body?.regenerate);
   const content = String(body?.content || "").trim();
   if (!content && !regenerate) return NextResponse.json({ error: "Message is empty." }, { status: 400 });
 
+  // --- Model resolution and access check (server-side, registry-driven) ---
+  const credits = await ensureCredits(user.id);
+  const plan: PlanId = (credits.plan as PlanId) in PLANS ? (credits.plan as PlanId) : "free";
+  const requestedModel = typeof body?.model === "string" ? body.model : null;
+  const model = (requestedModel && getModel(requestedModel)) || getModel("zai/glm-5.3-flash")!;
+  if (!planAllows(plan, model)) {
+    return NextResponse.json(
+      { error: `${model.name} requires the ${PLANS[model.minPlan].name} plan.`, upgradeTo: model.minPlan },
+      { status: 403 },
+    );
+  }
+  const planCfg = PLANS[plan];
   const mode = normalizeMode(body?.mode ?? chat.mode);
   const now = Date.now();
 
   if (regenerate) {
-    // Drop the trailing assistant replies so the retry replaces them instead of duplicating.
     const rows = await db.select().from(messages).where(eq(messages.chatId, id)).orderBy(asc(messages.createdAt));
     for (let i = rows.length - 1; i >= 0 && rows[i].role === "assistant"; i--) {
       await db.delete(messages).where(eq(messages.id, rows[i].id));
@@ -45,14 +62,13 @@ export async function POST(req: NextRequest, { params }: Params) {
       .values({ id: newId("msg"), chatId: id, role: "user", content: content.slice(0, 16000), createdAt: now });
   }
 
-  // Title a brand-new chat from the first user message.
   if (chat.title === "New chat") {
     const title = content.replace(/\s+/g, " ").trim().slice(0, 60) || "New chat";
     await db.update(chats).set({ title }).where(eq(chats.id, id));
   }
   await db.update(chats).set({ mode, updatedAt: Date.now() }).where(eq(chats.id, id));
 
-  const history = (
+  const history: ChatMessage[] = (
     await db
       .select({ role: messages.role, content: messages.content })
       .from(messages)
@@ -60,35 +76,129 @@ export async function POST(req: NextRequest, { params }: Params) {
       .orderBy(asc(messages.createdAt))
   ).map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
-  const project = chat.projectId
-    ? await one(db.select().from(projects).where(eq(projects.id, chat.projectId)))
-    : null;
+  const project = chat.projectId ? await one(db.select().from(projects).where(eq(projects.id, chat.projectId))) : null;
 
-  let reply;
-  try {
-    reply = await getProvider().complete(history, mode, {
-      projectName: project?.name,
-      instructions: project?.instructions,
-    });
-  } catch (e) {
+  // --- Credit reservation before the provider call ---
+  const estInputTokens = Math.ceil(history.reduce((n, m) => n + m.content.length, 0) / 4);
+  const estOutputTokens = Math.min(1024, planCfg.maxOutputTokens);
+  const holdCost = creditsFor(model, estInputTokens, estOutputTokens);
+  const unlimited = credits.unlimited;
+  let holdId: string | undefined;
+  let heldAmount = 0;
+  if (!unlimited) {
+    const hold = await reserveCredits(user.id, holdCost, `Chat with ${model.name}`, model.id, estInputTokens);
+    if (!hold) {
+      return NextResponse.json(
+        { error: "Not enough credits left this month. Upgrade your plan to continue.", outOfCredits: true },
+        { status: 402 },
+      );
+    }
+    holdId = hold.holdId;
+    heldAmount = hold.debited;
+  }
+
+
+  if (!providerConfigured()) {
+    await refundHold(user.id, holdId, heldAmount);
     return NextResponse.json(
-      { error: "The model provider failed to respond. Try again." },
-      { status: 502 },
+      { error: "AI provider is not configured on this deployment (MLAI_API_KEY missing)." },
+      { status: 503 },
     );
   }
 
+  const abort = new AbortController();
+  const onAbort = () => abort.abort();
+  req.signal.addEventListener("abort", onAbort);
+
   const replyId = newId("msg");
-  await db.insert(messages).values({
-    id: replyId,
-    chatId: id,
-    role: "assistant",
-    content: reply.content,
-    mode,
-    sources: reply.sources ?? null,
-    createdAt: Date.now(),
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let full = "";
+      let inputTokens = estInputTokens;
+      let outputTokens = 0;
+      let usageSeen = false;
+      const send = (event: string, data: unknown) => controller.enqueue(sse(event, data));
+      try {
+        send("status", { stage: "thinking" });
+        send("meta", {
+          messageId: replyId,
+          model: model.id,
+          modelName: model.name,
+          lang: /[\u0400-\u04FF]/.test(content) ? "ru" : "en",
+        });
+        send("status", { stage: "analyzing" });
+
+        let first = true;
+        for await (const ev of streamCompletion({
+          model: model.id,
+          messages: history,
+          maxTokens: planCfg.maxOutputTokens,
+          signal: abort.signal,
+        })) {
+          if (ev.type === "delta") {
+            if (first) {
+              first = false;
+              send("status", { stage: "generating" });
+            }
+            full += ev.text;
+            send("delta", { text: ev.text });
+          } else if (ev.type === "usage") {
+            usageSeen = true;
+            inputTokens = ev.inputTokens;
+            outputTokens = ev.outputTokens;
+          } else if (ev.type === "error") {
+            throw new Error(ev.message);
+          }
+        }
+        if (!full.trim()) throw new Error("Empty provider response");
+        if (!usageSeen) {
+          outputTokens = Math.ceil(full.length / 4);
+        }
+
+        await db.insert(messages).values({
+          id: replyId,
+          chatId: id,
+          role: "assistant",
+          content: full,
+          mode,
+          createdAt: Date.now(),
+        });
+
+        const actualCost = unlimited ? 0 : creditsFor(model, inputTokens, outputTokens);
+        const settled = await settleCredits({
+          userId: user.id,
+          holdId,
+          holdAmount: heldAmount,
+          actualCost,
+          model: model.id,
+          inputTokens,
+          outputTokens,
+        });
+        send("done", {
+          messageId: replyId,
+          balance: unlimited ? null : settled.balance,
+          creditsCharged: settled.charged,
+          inputTokens,
+          outputTokens,
+        });
+      } catch (e) {
+        // Failed requests must not consume credits.
+        await refundHold(user.id, holdId, heldAmount).catch(() => {});
+        if (!abort.signal.aborted) {
+          send("error", { message: e instanceof Error ? e.message : "The model failed to respond." });
+        }
+      } finally {
+        req.signal.removeEventListener("abort", onAbort);
+        controller.close();
+      }
+    },
   });
 
-  return NextResponse.json({
-    message: await one(db.select().from(messages).where(eq(messages.id, replyId))),
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+    },
   });
 }

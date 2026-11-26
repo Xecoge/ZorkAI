@@ -1,20 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Plus, Mic, Paperclip, ImagePlus, Globe, Check, ChevronDown, Sparkles } from "lucide-react";
+import { ArrowUp, Plus, Mic, Paperclip, ImagePlus, Globe, Check, ChevronDown, Sparkles, Hammer, Gauge, Brain, Scale, Users } from "lucide-react";
 
 const MODES = [
-  { id: "auto", label: "Auto", description: "Chooses Fast or Expert", paid: true },
-  { id: "fast", label: "Fast", description: "Quick responses", paid: false },
-  { id: "expert", label: "Expert", description: "Thinks hard · Zork-X1", paid: true },
-  { id: "heavy", label: "Heavy", description: "Team of Experts · Zork-X1", paid: true },
+  { id: "auto", label: "Auto", description: "Chooses Fast or Expert", paid: true, icon: Scale },
+  { id: "fast", label: "Fast", description: "Quick responses", paid: false, icon: Gauge },
+  { id: "expert", label: "Expert", description: "Thinks hard", paid: true, icon: Brain },
+  { id: "heavy", label: "Heavy", description: "Team of Experts", paid: true, icon: Users },
+  { id: "build", label: "Build", description: "Ship a working prototype", paid: true, icon: Hammer },
 ];
 
-export function Composer({ onSend, busy, mode, setMode }: {
+export function Composer({ onSend, busy, mode, setMode, modelSelector }: {
   onSend: (text: string) => void;
   busy: boolean;
   mode: string;
   setMode: (m: string) => void;
+  modelSelector?: React.ReactNode;
 }) {
   const [value, setValue] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -43,6 +45,7 @@ export function Composer({ onSend, busy, mode, setMode }: {
   }
 
   const current = MODES.find((m) => m.id === mode) || MODES[1];
+  const CurrentIcon = current.icon;
 
   return (
     <div className="w-full max-w-[756px] mx-auto relative">
@@ -85,35 +88,42 @@ export function Composer({ onSend, busy, mode, setMode }: {
         />
 
         <div className="flex items-center gap-1 pb-0.5 shrink-0">
+          {modelSelector}
           <div className="relative">
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              className="h-9 px-2.5 flex items-center gap-1 rounded-full text-[14px] font-medium hover:bg-hover transition-colors"
+              className="xq-mode-btn h-9 px-2.5 flex items-center gap-1 rounded-full text-[14px] font-medium hover:bg-hover transition-colors"
             >
+              <CurrentIcon className="xq-mode-icon w-3.5 h-3.5 text-secondary" />
               {current.label}
-              <ChevronDown className="w-3.5 h-3.5 text-tertiary" />
+              <ChevronDown className={`w-3.5 h-3.5 text-tertiary transition-transform duration-200 ${menuOpen ? "rotate-180" : ""}`} />
             </button>
             {menuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
                 <div className="pop-in absolute bottom-11 right-0 z-50 w-[260px] rounded-2xl border border-line bg-bg shadow-pop p-1.5">
-                  {MODES.map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => { setMode(m.id); setMenuOpen(false); }}
-                      className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl hover:bg-hover transition-colors text-left"
-                    >
-                      <span className="flex-1 min-w-0">
-                        <span className="flex items-center gap-1.5 text-[14px] font-medium">
-                          {m.label}
-                          {m.paid && <Sparkles className="w-3 h-3 text-tertiary" />}
+                  {MODES.map((m) => {
+                    const Icon = m.icon;
+                    const active = mode === m.id;
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => { setMode(m.id); setMenuOpen(false); }}
+                        className={`xq-mode-btn w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl hover:bg-hover transition-colors text-left ${active ? "bg-hover xq-mode-active" : ""}`}
+                      >
+                        <Icon className="xq-mode-icon w-4 h-4 mt-0.5 shrink-0 text-secondary" />
+                        <span className="flex-1 min-w-0">
+                          <span className="flex items-center gap-1.5 text-[14px] font-medium">
+                            {m.label}
+                            {m.paid && <Sparkles className="w-3 h-3 text-tertiary" />}
+                          </span>
+                          <span className="block text-[12px] text-tertiary truncate">{m.description}</span>
                         </span>
-                        <span className="block text-[12px] text-tertiary truncate">{m.description}</span>
-                      </span>
-                      {mode === m.id && <Check className="w-4 h-4 text-accent mt-0.5" />}
-                    </button>
-                  ))}
+                        {active && <Check className="w-4 h-4 text-accent mt-0.5" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </>
             )}
