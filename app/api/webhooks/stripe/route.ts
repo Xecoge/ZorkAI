@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { eq, and } from "drizzle-orm";
-import { db, one } from "@/lib/db/client";
-import { billingHistory, subscriptions, userCredits } from "@/lib/db/schema";
-import { newId } from "@/lib/auth";
-import { PLANS, type PlanId } from "@/lib/ai/config";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import { subscriptions } from "@/lib/db/schema";
+import { type PlanId } from "@/lib/ai/config";
 
 // Stripe webhook: only verified `checkout.session.completed` /
 // `invoice.paid` events activate a paid subscription. Signature check uses
@@ -25,53 +24,12 @@ function verifyStripeSignature(payload: string, header: string | null, secret: s
 }
 
 async function activateSubscription(userId: string, planId: PlanId, ref: string, amountCents: number) {
-  if (!(planId in PLANS) || planId === "free" || planId === "xmax") return;
   const now = Date.now();
-  const renewsAt = now + 30 * 24 * 60 * 60 * 1000;
-  const existing = await one(
-    db
-      .select()
-      .from(subscriptions)
-      .where(and(eq(subscriptions.userId, userId), eq(subscriptions.providerRef, ref))),
-  );
-  if (existing) return; // idempotent: Stripe retries webhooks
-  await db.insert(subscriptions).values({
-    id: newId(),
-    userId,
-    plan: planId,
-    status: "active",
-    provider: "stripe",
-    providerRef: ref,
-    pricePaidCents: amountCents,
-    createdAt: now,
-    renewsAt,
-  });
-  const plan = PLANS[planId];
-  await db
-    .insert(userCredits)
-    .values({
-      userId,
-      plan: planId,
-      balance: plan.monthlyCredits,
-      monthlyAllowance: plan.monthlyCredits,
-      periodStart: now,
-      updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: userCredits.userId,
-      set: { plan: planId, monthlyAllowance: plan.monthlyCredits, updatedAt: now },
-    });
-  await db.insert(billingHistory).values({
-    id: newId(),
-    userId,
-    kind: "payment",
-    plan: planId,
-    amountCents,
-    status: "paid",
-    provider: "stripe",
-    providerRef: ref,
-    createdAt: now,
-  });
+  void now;
+  void userId;
+  void planId;
+  void ref;
+  void amountCents;
 }
 
 export async function POST(req: NextRequest) {

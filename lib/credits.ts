@@ -4,7 +4,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { creditTransactions, modelUsage, userCredits, users } from "@/lib/db/schema";
-import { PLANS, type PlanId } from "@/lib/ai/config";
+import { getModel, PLANS, type PlanId } from "@/lib/ai/config";
 import { newId } from "@/lib/auth";
 
 const PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
@@ -191,7 +191,7 @@ export async function settleCredits(opts: {
           credits: -charged,
           outputTokens,
           balanceAfter: balance,
-          description: `Chat with ${model}`,
+          description: `Chat with ${getModel(model)?.name ?? "AI"}`,
         })
         .where(eq(creditTransactions.id, holdId));
     }

@@ -30,7 +30,7 @@ export async function GET() {
       vision: m.vision,
       reasoning: m.reasoning,
     })),
-    plans: PLAN_ORDER.filter((id) => id !== "xmax").map((id) => {
+    plans: PLAN_ORDER.map((id) => {
       const p = PLANS[id];
       return {
         id,

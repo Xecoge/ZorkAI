@@ -225,12 +225,12 @@ function SideChat({ href, label, active, icon: Icon, onClick }: { href: string; 
     <Link
       href={href}
       onClick={onClick}
-      className={`mt-0.5 flex items-center gap-2.5 h-9 px-3 rounded-xl text-[14px] transition-colors ${
+      className={`mt-0.5 flex items-center gap-2.5 h-9 px-3 rounded-xl text-[14px] overflow-hidden transition-colors ${
         active ? "bg-selected font-medium" : "text-text hover:bg-hover"
       }`}
     >
       {Icon ? <Icon className="w-[17px] h-[17px] text-secondary shrink-0" /> : <span className="w-1.5 h-1.5 rounded-full bg-tertiary shrink-0" />}
-      <span className="truncate">{label}</span>
+      <span className="truncate min-w-0 flex-1">{label}</span>
     </Link>
   );
 }

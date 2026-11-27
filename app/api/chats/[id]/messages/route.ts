@@ -5,7 +5,7 @@ import { db, one } from "@/lib/db/client";
 import { chats, messages, projects, userCredits } from "@/lib/db/schema";
 import { getSessionUser, newId } from "@/lib/auth";
 import { normalizeMode, providerConfigured, streamCompletion, type ChatMessage } from "@/lib/ai/provider";
-import { creditsFor, getModel, planAllows, PLANS, type PlanId } from "@/lib/ai/config";
+import { creditsFor, getModel, planAllows, PLANS, DEFAULT_MODEL_ID, fallbacksFor, type PlanId } from "@/lib/ai/config";
 import { ensureCredits, getSummary, refundHold, reserveCredits, settleCredits } from "@/lib/credits";
 
 type Params = { params: Promise<{ id: string }> };
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   const credits = creditsRow?.unlimited === 1 ? await getSummary(user.id) : await ensureCredits(user.id);
   const plan: PlanId = (credits.plan as PlanId) in PLANS ? (credits.plan as PlanId) : "free";
   const requestedModel = typeof body?.model === "string" ? body.model : null;
-  const model = (requestedModel && getModel(requestedModel)) || getModel("zai/glm-5.3-flash")!;
+  const model = (requestedModel && getModel(requestedModel)) || getModel(DEFAULT_MODEL_ID)!;
   if (!planAllows(plan, model)) {
     return NextResponse.json(
       { error: `${model.name} requires the ${PLANS[model.minPlan].name} plan.`, upgradeTo: model.minPlan },
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!providerConfigured()) {
     await refundHold(user.id, holdId, heldAmount);
     return NextResponse.json(
-      { error: "AI provider is not configured on this deployment (MLAI_API_KEY missing)." },
+      { error: "AI provider is not configured on this deployment (DRAKE_API_KEY missing)." },
       { status: 503 },
     );
   }
@@ -132,12 +132,22 @@ export async function POST(req: NextRequest, { params }: Params) {
         send("status", { stage: "analyzing" });
 
         let first = true;
+        let used = model;
         for await (const ev of streamCompletion({
           model: model.id,
+          fallbacks: fallbacksFor(model.id),
           messages: history,
           maxTokens: planCfg.maxOutputTokens,
           signal: abort.signal,
         })) {
+          if (ev.type === "model") {
+            const served = getModel(ev.model);
+            if (served && served.id !== used.id) {
+              used = served;
+              send("meta", { messageId: replyId, model: served.id, modelName: served.name, fallback: true });
+            }
+            continue;
+          }
           if (ev.type === "delta") {
             if (first) {
               first = false;
@@ -167,13 +177,13 @@ export async function POST(req: NextRequest, { params }: Params) {
           createdAt: Date.now(),
         });
 
-        const actualCost = unlimited ? 0 : creditsFor(model, inputTokens, outputTokens);
+        const actualCost = unlimited ? 0 : creditsFor(used, inputTokens, outputTokens);
         const settled = await settleCredits({
           userId: user.id,
           holdId,
           holdAmount: heldAmount,
           actualCost,
-          model: model.id,
+          model: used.id,
           inputTokens,
           outputTokens,
         });

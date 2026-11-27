@@ -201,14 +201,14 @@ export function SettingsModal({ pane, setPane, onClose }: { pane: string; setPan
           <span className="w-7 h-7 rounded-full grid place-items-center bg-accent/15 text-accent shrink-0" aria-hidden="true">
             <BadgePercent className="w-4 h-4" />
           </span>
-          <p className="text-[13px] font-medium whitespace-nowrap">Get 50% OFF Premium</p>
-          <p className="text-[13px] text-tertiary truncate hidden sm:block">Fewer rate limits, more capabilities</p>
+          <p className="text-[13px] font-medium whitespace-nowrap">Get Max free</p>
+          <p className="text-[13px] text-tertiary truncate hidden sm:block">Unlimited credits and every model, for good</p>
           <button
             onClick={() => setUpgradeOpen(true)}
-            aria-label="Upgrade to Premium"
+            aria-label="Activate Max"
             className="ml-auto h-8 px-4 rounded-full bg-[#1a1a1a] dark:bg-white text-white dark:text-[#1a1a1a] text-[13px] font-medium hover:opacity-85 transition-opacity"
           >
-            Upgrade
+            Activate
           </button>
         </div>
       </div>
@@ -246,8 +246,8 @@ function AccountPane({ user, onUpgrade }: { user: { name: string; email: string;
           className="mt-4 w-full flex items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3.5 text-left hover:bg-accent/15 transition-colors"
         >
           <span>
-            <span className="block text-[14px] font-medium">Get 50% OFF Premium</span>
-            <span className="block text-[12px] text-tertiary">Frontier models, more credits, higher limits</span>
+            <span className="block text-[14px] font-medium">Get Max — free during launch</span>
+            <span className="block text-[12px] text-tertiary">Unlimited credits and every model, yours forever</span>
           </span>
           <Sparkles className="w-4 h-4 text-accent shrink-0" aria-hidden="true" />
         </button>

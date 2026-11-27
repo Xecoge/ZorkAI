@@ -27,8 +27,8 @@ export async function POST(req: NextRequest) {
   if (!email || !(planId in PLANS) || planId === "free") {
     return NextResponse.json({ error: "Provide an email and a valid plan." }, { status: 400 });
   }
-  if (planId === "xmax") {
-    // Exclusive internal tier: entitlement must persist in the database,
+  if (planId === "max") {
+    // Max is the only plan: its entitlement must persist in the database,
     // paired with the unlimited-credits flag the credit engine honors.
     const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
     if (!user) return NextResponse.json({ error: "User not found." }, { status: 404 });

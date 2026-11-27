@@ -1,23 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Sparkles, Lock, Zap } from "lucide-react";
-import { MODELS, type ModelEntry } from "@/lib/ai/config";
+import { Check, ChevronDown, Zap } from "lucide-react";
+import { MODELS, planAllows, type PlanId } from "@/lib/ai/config";
 
-export type ModelInfo = ModelEntry & { allowed: boolean };
-
-export function ModelSelector({  model,
-  setModel,
-  plan,
-}: {
-  model: string;
-  setModel: (id: string) => void;
-  plan: string;
-}) {
+export function ModelSelector({ model, setModel, plan }: { model: string; setModel: (id: string) => void; plan: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   const current = MODELS.find((m) => m.id === model) ?? MODELS[0];
-  void plan;
+  const planId = (plan as PlanId) || "free";
 
   useEffect(() => {
     if (!open) return;
@@ -45,11 +36,11 @@ export function ModelSelector({  model,
         <div
           role="listbox"
           aria-label="Model"
-          className="pop-in absolute bottom-10 left-0 z-50 w-[300px] max-w-[calc(100vw-32px)] rounded-2xl border border-line bg-bg shadow-pop p-1.5"
+          className="pop-in absolute bottom-10 left-0 z-50 w-[260px] max-w-[calc(100vw-32px)] rounded-2xl border border-line bg-bg shadow-pop p-1.5"
         >
-          {(MODELS as ModelInfo[]).map((m) => {
+          {MODELS.map((m) => {
             const active = m.id === model;
-            const locked = !m.allowed;
+            const locked = !planAllows(planId, m);
             return (
               <button
                 key={m.id}
@@ -61,31 +52,15 @@ export function ModelSelector({  model,
                   setModel(m.id);
                   setOpen(false);
                 }}
-                className={`xq-mode-btn w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl text-left transition-colors ${
+                className={`xq-mode-btn w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-left transition-colors ${
                   active ? "bg-hover xq-mode-active" : "hover:bg-hover"
                 } ${locked ? "opacity-45 cursor-not-allowed" : ""}`}
               >
-                <span className="flex-1 min-w-0">
-                  <span className="flex items-center gap-1.5 text-[14px] font-medium">
-                    {m.name}
-                    {m.minPlan !== "free" && <Sparkles className="w-3 h-3 text-tertiary" aria-label={`${m.minPlan} plan`} />}
-                  </span>
-                  <span className="block text-[12px] text-tertiary truncate">{m.description}</span>
-                  <span className="block text-[11px] text-tertiary mt-0.5">
-                    {m.creditsPer1kIn}/{m.creditsPer1kOut} credits per 1K in/out tokens
-                  </span>
-                </span>
-                {locked ? (
-                  <Lock className="w-3.5 h-3.5 text-tertiary mt-1 shrink-0" aria-label={`Requires ${m.minPlan}`} />
-                ) : (
-                  active && <Check className="w-4 h-4 text-accent mt-0.5 shrink-0" />
-                )}
+                <span className="truncate text-[14px] font-medium">{m.name}</span>
+                {active && <Check className="w-4 h-4 text-accent shrink-0" />}
               </button>
             );
           })}
-          <p className="px-3 py-2 text-[11px] text-tertiary border-t border-line mt-1">
-            Your plan: <span className="capitalize">{plan}</span>. Locked models unlock with an upgrade.
-          </p>
         </div>
       )}
     </div>

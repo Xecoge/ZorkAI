@@ -4,11 +4,10 @@ import { billingHistory } from "@/lib/db/schema";
 import { getSessionUser, newId } from "@/lib/auth";
 import { PLANS, PROMO_PERCENT, discountCents, type PlanId } from "@/lib/ai/config";
 
-// Stripe-compatible checkout. With STRIPE_SECRET_KEY set, a real Checkout
-// Session is created via Stripe's REST API; without it the endpoint reports
-// 501 so the UI can show an honest "payments not configured" state.
-// The 50% promotion is applied to the amount sent to Stripe — the discount is
-// real pricing, not a visual badge.
+// Stripe-compatible checkout, kept for when paid renewals open. Right now Max
+// is free during launch and granted by POST /api/upgrade, so this endpoint is a
+// stub: it charges nothing and tells the client where activation lives.
+const PAYMENTS_OPEN = false;
 const STRIPE_API = "https://api.stripe.com/v1";
 
 export async function POST(req: NextRequest) {
@@ -16,8 +15,14 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => null);
   const planId = String(body?.plan || "") as PlanId;
-  if (!(planId in PLANS) || planId === "free" || planId === "xmax") {
+  if (!(planId in PLANS) || planId === "free") {
     return NextResponse.json({ error: "Unknown plan." }, { status: 400 });
+  }
+  if (!PAYMENTS_OPEN) {
+    return NextResponse.json(
+      { stub: true, error: "Payments are not open yet. Max is free during launch — activate it in the app." },
+      { status: 200 },
+    );
   }
   const plan = PLANS[planId];
   const amountCents = discountCents(plan); // 50% promo applied at checkout

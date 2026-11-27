@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CreditCard, Coins, Activity } from "lucide-react";
 import { GhostLoader } from "./ghost";
+import { MODELS } from "@/lib/ai/config";
 
 type Billing = {
   plan: { id: string; name: string; priceCents: number; unlimited: boolean; status: string; renewsAt: number };
@@ -52,23 +53,17 @@ export function BillingPane({ onUpgrade }: { onUpgrade: () => void }) {
           <div className="min-w-0">
             <p className="text-[16px] font-semibold">
               {plan.name}
-              {plan.id === "xmax" ? (
-                <span className="ml-2 text-[11px] font-medium text-accent border border-accent/40 rounded-full px-2 py-0.5 align-middle">&lt; Unlimited Credits &gt;</span>
-              ) : plan.unlimited ? (
+              {plan.unlimited ? (
                 <span className="ml-2 text-[11px] font-medium text-accent border border-accent/40 rounded-full px-2 py-0.5 align-middle">Unlimited Credits</span>
               ) : null}
             </p>
-            <p className="text-[13px] text-tertiary">
-              {plan.id === "xmax"
-                ? "Exclusive internal plan"
-                : plan.priceCents > 0 ? `${money(plan.priceCents)}/month · ` : "Free · "}
-              {plan.id !== "xmax" && <span className="capitalize">{plan.status}</span>}
-              {plan.id !== "xmax" && plan.renewsAt ? ` · renews ${date(plan.renewsAt)}` : ""}
+            <p className="text-[13px] text-tertiary capitalize">
+              {plan.id === "max" ? "Free during launch · yours forever" : `Free · ${plan.status}`}
             </p>
           </div>
-          {plan.id !== "xmax" && (
+          {plan.id !== "max" && (
             <button onClick={onUpgrade} className="ml-auto h-9 px-4 rounded-full bg-text text-bg text-[13px] font-medium hover:opacity-85 transition-opacity">
-              {plan.id === "free" ? "Upgrade" : "Change plan"}
+              Get Max
             </button>
           )}
         </div>
@@ -78,7 +73,7 @@ export function BillingPane({ onUpgrade }: { onUpgrade: () => void }) {
         <p className="text-[13px] text-tertiary mb-2 flex items-center gap-1.5"><Coins className="w-3.5 h-3.5" /> Credit balance</p>
         <div className="rounded-2xl border border-line px-4 py-4">
           {credits.unlimited ? (
-            <p className="text-[15px] font-medium text-accent">{plan.id === "xmax" ? "< Unlimited Credits >" : "Unlimited Credits"}</p>
+            <p className="text-[15px] font-medium text-accent">Unlimited Credits</p>
           ) : (
             <>
               <div className="flex items-baseline justify-between gap-3 text-[14px]">
@@ -105,7 +100,7 @@ export function BillingPane({ onUpgrade }: { onUpgrade: () => void }) {
             usage.byModel.map((m) => (
               <Row
                 key={m.model}
-                label={`${m.model} · ${m.requests} request${m.requests === 1 ? "" : "s"}`}
+                label={`${MODELS.find((x) => x.id === m.model)?.name ?? "Model"} · ${m.requests} request${m.requests === 1 ? "" : "s"}`}
                 value={`${num(m.credits)} credits · ${num(m.inputTokens + m.outputTokens)} tokens`}
               />
             ))

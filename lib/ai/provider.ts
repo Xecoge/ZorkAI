@@ -1,15 +1,16 @@
-// Real ML AI provider integration (OpenAI-compatible gateway, verified 2026-11-26).
-// Base URL: https://api.ai.ml/v1 (override with MLAI_BASE_URL).
-// Auth: Authorization: Bearer <MLAI_API_KEY> — server-side only, never shipped
+// Drake gateway integration (OpenAI-compatible, verified 2026-11-27).
+// Base URL: https://api.drakezakuru.com/v1 (override with DRAKE_BASE_URL).
+// Auth: Authorization: Bearer <DRAKE_API_KEY> — server-side only, never shipped
 // to the browser. Streaming uses SSE with stream_options.include_usage so the
 // final event carries true token usage for billing.
-import { MLAI_BASE_URL } from "@/lib/ai/config";
+import { DRAKE_BASE_URL } from "@/lib/ai/config";
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
 export type Mode = "auto" | "fast" | "expert" | "heavy" | "build";
 
 export type StreamEvent =
+  | { type: "model"; model: string }
   | { type: "delta"; text: string }
   | { type: "usage"; inputTokens: number; outputTokens: number }
   | { type: "error"; message: string };
@@ -26,8 +27,8 @@ const SYSTEM_PROMPT =
   "You are Xecoge, a helpful AI assistant in a premium chat app. Answer in clean markdown with headings, lists, tables and fenced code blocks where useful. Be concise and accurate. Reply in the language the user writes in.";
 
 function authHeaders(): HeadersInit {
-  const key = (process.env.MLAI_API_KEY || "").trim();
-  if (!key) throw new Error("MLAI_API_KEY is not configured");
+  const key = (process.env.DRAKE_API_KEY || process.env.MLAI_API_KEY || "").trim();
+  if (!key) throw new Error("DRAKE_API_KEY is not configured");
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${key}`,
@@ -35,44 +36,67 @@ function authHeaders(): HeadersInit {
 }
 
 export function providerConfigured(): boolean {
-  return Boolean(process.env.MLAI_API_KEY);
+  return Boolean((process.env.DRAKE_API_KEY || process.env.MLAI_API_KEY || "").trim());
 }
 
 /**
- * Stream a chat completion from the ML AI gateway. Yields deltas and a final
- * usage event. `signal` aborts the upstream request when the client leaves.
+ * Stream a chat completion from the Drake gateway. Yields the id of the model
+ * that actually served the request (the gateway can be out of capacity for a
+ * given model), then deltas and a final usage event. `fallbacks` are tried in
+ * order when the first model returns a non-200 response, so a chat still
+ * answers quickly instead of failing. `signal` aborts the upstream request.
  */
 export async function* streamCompletion(opts: {
   model: string;
+  fallbacks?: string[];
   messages: ChatMessage[];
   maxTokens: number;
   temperature?: number;
   signal?: AbortSignal;
 }): AsyncGenerator<StreamEvent> {
-  const res = await fetch(`${MLAI_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
-    method: "POST",
-    headers: authHeaders(),
-    signal: opts.signal,
-    body: JSON.stringify({
-      model: opts.model,
+  const body = (model: string) =>
+    JSON.stringify({
+      model,
       messages: [{ role: "system", content: SYSTEM_PROMPT }, ...opts.messages],
       max_tokens: opts.maxTokens,
       temperature: opts.temperature ?? 0.7,
       stream: true,
       stream_options: { include_usage: true },
-    }),
-  });
-  if (!res.ok || !res.body) {
-    let detail = `Provider error ${res.status}`;
+    });
+  const url = `${DRAKE_BASE_URL.replace(/\/$/, "")}/chat/completions`;
+  const signal = opts.signal
+    ? AbortSignal.any([opts.signal, AbortSignal.timeout(120_000)])
+    : AbortSignal.timeout(120_000);
+
+  let res: Response | null = null;
+  let served = opts.model;
+  let detail = "";
+  for (const candidate of [opts.model, ...(opts.fallbacks ?? [])]) {
+    if (opts.signal?.aborted) break;
     try {
-      const body = await res.json();
-      detail = body?.error?.message ? `${detail}: ${body.error.message}` : detail;
-    } catch {
-      /* keep status-only detail */
+      const r = await fetch(url, { method: "POST", headers: authHeaders(), signal, body: body(candidate) });
+      if (r.ok && r.body) {
+        res = r;
+        served = candidate;
+        break;
+      }
+      detail = `Provider error ${r.status}`;
+      try {
+        const errBody = await r.json();
+        if (errBody?.error?.message) detail = `${detail}: ${errBody.error.message}`;
+      } catch {
+        /* keep status-only detail */
+      }
+    } catch (e) {
+      if (opts.signal?.aborted) break;
+      detail = e instanceof Error ? `Provider error: ${e.message}` : "Provider error";
     }
-    yield { type: "error", message: detail };
+  }
+  if (!res || !res.body) {
+    yield { type: "error", message: detail || "The model is unavailable right now." };
     return;
   }
+  yield { type: "model", model: served };
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -117,7 +141,7 @@ export async function complete(opts: {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 30_000);
   try {
-    const res = await fetch(`${MLAI_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
+    const res = await fetch(`${DRAKE_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: authHeaders(),
       signal: controller.signal,

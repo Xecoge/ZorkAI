@@ -1,16 +1,17 @@
 // Central Xecoge AI configuration: model registry and subscription plans.
 // Everything the credit/billing/model-access system enforces lives here.
-// Model IDs below were verified live against the provider gateway on 2026-11-26
-// (GET {MLAI_BASE_URL}/models). Do not edit an ID without re-verifying.
+// Model IDs below were verified live against the Drake gateway on 2026-11-27
+// (GET {DRAKE_BASE_URL}/models + one real completion each). Do not edit an ID
+// without re-verifying: the gateway rejects models whose upstream is out of quota.
 
-export const MLAI_BASE_URL = process.env.MLAI_BASE_URL ?? "https://api.ai.ml/v1";
+export const DRAKE_BASE_URL = process.env.DRAKE_BASE_URL ?? "https://api.drakezakuru.com/v1";
 
-export type PlanId = "free" | "plus" | "pro" | "max" | "xmax";
+export type PlanId = "free" | "max";
 
 export type ModelEntry = {
-  id: string; // provider model id used for routing
-  name: string;
-  provider: "anthropic" | "openai" | "zai";
+  id: string; // gateway model id used for routing
+  name: string; // only this is shown in the picker — never the vendor
+  provider: string; // gateway pool; kept for diagnostics, never rendered
   description: string;
   minPlan: PlanId; // lowest plan that may use this model
   creditsPer1kIn: number; // credits per 1,000 input tokens
@@ -22,100 +23,149 @@ export type ModelEntry = {
   status: "available" | "degraded" | "offline";
 };
 
-// creditsPer1k rates derive from the provider's $/MTok pricing ÷ 50, rounded:
-// e.g. GLM 5.3 Flash $0.15/$0.50 per MTok → 0.003/0.01 credits per 1k tokens.
+// Ordered fastest-first: the first entry is the default so a new chat answers
+// in about a second. Every id below answered a live completion on 2026-11-27.
 export const MODELS: ModelEntry[] = [
   {
-    id: "zai/glm-5.3-flash",
-    name: "GLM 5.3 Flash",
-    provider: "zai",
-    description: "Fast, cost-efficient model for everyday requests",
+    id: "guava3/gemini-3-flash",
+    name: "Gemini 3 Flash",
+    provider: "gemini",
+    description: "Quick, capable default",
+    minPlan: "free",
+    creditsPer1kIn: 0.02,
+    creditsPer1kOut: 0.08,
+    contextLength: 1_000_000,
+    maxOutput: 65_536,
+    vision: true,
+    reasoning: false,
+    status: "available",
+  },
+  {
+    id: "guava3/gemini-3.1-flash-lite",
+    name: "Gemini 3.1 Flash Lite",
+    provider: "gemini",
+    description: "Lightest and fastest",
     minPlan: "free",
     creditsPer1kIn: 0.01,
-    creditsPer1kOut: 0.01,
-    contextLength: 1000000,
-    maxOutput: 128000,
-    vision: true,
-    reasoning: true,
+    creditsPer1kOut: 0.03,
+    contextLength: 1_000_000,
+    maxOutput: 65_536,
+    vision: false,
+    reasoning: false,
     status: "available",
   },
   {
-    id: "anthropic/claude-sonnet-5.5",
-    name: "Claude Sonnet 5.5",
-    provider: "anthropic",
-    description: "Balanced speed and intelligence for daily work",
+    id: "guava3/gemini-3.5-flash-lite",
+    name: "Gemini 3.5 Flash Lite",
+    provider: "gemini",
+    description: "Newer lightweight model",
     minPlan: "free",
-    creditsPer1kIn: 0.04,
-    creditsPer1kOut: 0.2,
-    contextLength: 1000000,
-    maxOutput: 128000,
-    vision: true,
-    reasoning: true,
+    creditsPer1kIn: 0.01,
+    creditsPer1kOut: 0.04,
+    contextLength: 1_000_000,
+    maxOutput: 65_536,
+    vision: false,
+    reasoning: false,
     status: "available",
   },
   {
-    id: "zai/glm-5.3",
-    name: "GLM 5.3",
-    provider: "zai",
-    description: "Full GLM 5.3 with a 1M-token context window",
-    minPlan: "plus",
+    id: "guava3/gemini-3.8-flash-tiered",
+    name: "Gemini 3.8 Flash",
+    provider: "gemini",
+    description: "Thinks harder on complex requests",
+    minPlan: "free",
     creditsPer1kIn: 0.03,
-    creditsPer1kOut: 0.09,
-    contextLength: 1000000,
-    maxOutput: 128000,
-    vision: false, // text only — verified on the gateway
-    reasoning: true,
-    status: "available",
-  },
-  {
-    id: "openai/gpt-6.1-sol",
-    name: "ChatGPT 6.1 Sol",
-    provider: "openai",
-    description: "Very fast frontier model with a large context",
-    minPlan: "pro",
-    creditsPer1kIn: 0.04,
-    creditsPer1kOut: 0.21,
-    contextLength: 272000,
-    maxOutput: 128000,
+    creditsPer1kOut: 0.12,
+    contextLength: 1_000_000,
+    maxOutput: 65_536,
     vision: true,
     reasoning: true,
     status: "available",
   },
   {
-    id: "anthropic/claude-opus-5.5",
-    name: "Claude Opus 5.5",
-    provider: "anthropic",
-    description: "The strongest model for hard, long-running work",
-    minPlan: "pro",
-    creditsPer1kIn: 0.08,
-    creditsPer1kOut: 0.42,
-    contextLength: 1000000,
-    maxOutput: 128000,
+    id: "free/cline-free/nemotron-3.5-super-vl",
+    name: "Nemotron 3.5 Super",
+    provider: "nemotron",
+    description: "Fast open model with vision",
+    minPlan: "free",
+    creditsPer1kIn: 0.01,
+    creditsPer1kOut: 0.02,
+    contextLength: 1_000_000,
+    maxOutput: 65_536,
+    vision: true,
+    reasoning: false,
+    status: "available",
+  },
+  {
+    id: "free/nvidia/nemotron-3-ultra-550b-a55b:free",
+    name: "Nemotron 3 Ultra 550B",
+    provider: "nemotron",
+    description: "Largest open model on the gateway",
+    minPlan: "free",
+    creditsPer1kIn: 0.02,
+    creditsPer1kOut: 0.06,
+    contextLength: 262_144,
+    maxOutput: 65_536,
+    vision: false,
+    reasoning: true,
+    status: "available",
+  },
+  {
+    id: "free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    name: "Nemotron 3 Nano Omni",
+    provider: "nemotron",
+    description: "Small, reasoning-first model",
+    minPlan: "free",
+    creditsPer1kIn: 0.01,
+    creditsPer1kOut: 0.02,
+    contextLength: 131_072,
+    maxOutput: 32_768,
     vision: true,
     reasoning: true,
     status: "available",
   },
   {
-    id: "openai/gpt-6.1-sol-pro",
-    name: "ChatGPT 6.1 Sol Pro",
-    provider: "openai",
-    description: "Priority tier of 6.1 Sol for the heaviest requests",
-    minPlan: "max",
-    creditsPer1kIn: 0.04,
-    creditsPer1kOut: 0.21,
-    contextLength: 272000,
-    maxOutput: 128000,
-    vision: true,
-    reasoning: true,
+    id: "free/tencent/hy4-flash:free",
+    name: "Hunyuan 4 Flash",
+    provider: "hunyuan",
+    description: "Long-context Chinese-English model",
+    minPlan: "free",
+    creditsPer1kIn: 0.01,
+    creditsPer1kOut: 0.03,
+    contextLength: 262_144,
+    maxOutput: 32_768,
+    vision: false,
+    reasoning: false,
     status: "available",
   },
 ];
 
+export const DEFAULT_MODEL_ID = MODELS[0].id;
+
+// The gateway answers 503/429 for a model when its upstream pool is drained.
+// Each model lists cheaper-or-equal substitutes, tried in order by the provider
+// so a chat still answers instead of failing; billing then uses the model that
+// actually served the request, never a more expensive one than was charged for.
+export const FALLBACKS: Record<string, string[]> = {
+  "guava3/gemini-3-flash": ["guava3/gemini-3.1-flash-lite", "free/cline-free/nemotron-3.5-super-vl"],
+  "guava3/gemini-3.1-flash-lite": ["free/cline-free/nemotron-3.5-super-vl", "free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"],
+  "guava3/gemini-3.5-flash-lite": ["guava3/gemini-3.1-flash-lite", "free/cline-free/nemotron-3.5-super-vl"],
+  "guava3/gemini-3.8-flash-tiered": ["guava3/gemini-3-flash", "guava3/gemini-3.1-flash-lite"],
+  "free/cline-free/nemotron-3.5-super-vl": ["free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"],
+  "free/nvidia/nemotron-3-ultra-550b-a55b:free": ["guava3/gemini-3.1-flash-lite", "free/cline-free/nemotron-3.5-super-vl"],
+  "free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": ["free/cline-free/nemotron-3.5-super-vl"],
+  "free/tencent/hy4-flash:free": ["guava3/gemini-3.1-flash-lite", "free/cline-free/nemotron-3.5-super-vl"],
+};
+
+export function fallbacksFor(id: string): string[] {
+  return FALLBACKS[id] ?? [];
+}
+
 export type PlanConfig = {
   id: PlanId;
   name: string;
-  priceCents: number; // full monthly price
-  promoPercent: number; // current promotion discount (50 = half price)
+  priceCents: number; // full monthly price (0 = free)
+  promoPercent: number; // current promotion discount (0 = none)
   monthlyCredits: number;
   monthlyTokens: number; // soft token allowance reported on the dashboard
   buildRuns: number; // Build-mode requests per month (-1 = unlimited)
@@ -125,104 +175,51 @@ export type PlanConfig = {
   blurb: string;
 };
 
-export const PROMO_PERCENT = 50;
+export const PROMO_PERCENT = 0;
 
+// One plan, Max. Activating it is free for now and permanent: the entitlement
+// is stored in the database (users.plan + user_credits.unlimited) and never
+// expires. Payment is not wired up yet — checkout returns a stub.
 export const PLANS: Record<PlanId, PlanConfig> = {
   free: {
     id: "free",
     name: "Free",
     priceCents: 0,
     promoPercent: 0,
-    monthlyCredits: 100,
-    monthlyTokens: 500_000,
-    buildRuns: 3,
-    requestsPerDay: 30,
+    monthlyCredits: 300,
+    monthlyTokens: 1_000_000,
+    buildRuns: 5,
+    requestsPerDay: 50,
     maxOutputTokens: 4096,
-    blurb: "Try real AI models",
+    blurb: "Start chatting with every model",
     features: [
-      "100 credits every month",
-      "GLM 5.3 Flash & Claude Sonnet 5.5",
-      "3 Build runs per month",
+      "300 credits every month",
+      "Every model in the picker",
+      "5 Build runs per month",
       "Conversation history",
-    ],
-  },
-  plus: {
-    id: "plus",
-    name: "Plus",
-    priceCents: 1500,
-    promoPercent: PROMO_PERCENT,
-    monthlyCredits: 2_000,
-    monthlyTokens: 5_000_000,
-    buildRuns: 25,
-    requestsPerDay: 200,
-    maxOutputTokens: 8192,
-    blurb: "More credits, more models",
-    features: [
-      "2,000 credits every month",
-      "Everything in Free + GLM 5.3",
-      "25 Build runs per month",
-      "Longer responses (8K tokens)",
-    ],
-  },
-  pro: {
-    id: "pro",
-    name: "Pro",
-    priceCents: 2500,
-    promoPercent: PROMO_PERCENT,
-    monthlyCredits: 6_000,
-    monthlyTokens: 20_000_000,
-    buildRuns: 100,
-    requestsPerDay: 600,
-    maxOutputTokens: 16_384,
-    blurb: "Frontier models unlocked",
-    features: [
-      "6,000 credits every month",
-      "Claude Opus 5.5 & ChatGPT 6.1 Sol",
-      "100 Build runs per month",
-      "Priority request handling",
     ],
   },
   max: {
     id: "max",
     name: "Max",
-    priceCents: 7000,
-    promoPercent: PROMO_PERCENT,
-    monthlyCredits: 20_000,
-    monthlyTokens: 100_000_000,
-    buildRuns: -1,
-    requestsPerDay: -1,
-    maxOutputTokens: 32768,
-    blurb: "Everything, at the highest limits",
-    features: [
-      "20,000 credits every month",
-      "All models incl. 6.1 Sol Pro",
-      "Unlimited Build runs",
-      "Highest rate limits",
-    ],
-  },
-  // Exclusive internal subscription. Never sold, never shown in upgrade UI;
-  // assigned only through the admin endpoint, paired with user_credits.unlimited=1.
-  xmax: {
-    id: "xmax",
-    name: "Xecoge Max",
     priceCents: 0,
     promoPercent: 0,
-    monthlyCredits: 0, // ignored: unlimited flag on user_credits governs balance
+    monthlyCredits: 0, // ignored: user_credits.unlimited governs the balance
     monthlyTokens: -1,
     buildRuns: -1,
     requestsPerDay: -1,
     maxOutputTokens: 32768,
-    blurb: "Exclusive internal plan — unlimited platform credits",
+    blurb: "Free for now, yours forever",
     features: [
-      "< Unlimited Credits >",
-      "All verified AI models",
+      "Unlimited credits",
+      "Every model, highest limits",
+      "Longest responses (32K tokens)",
       "Unlimited Build runs",
-      "All premium platform features",
     ],
   },
 };
 
-export const PLAN_ORDER: PlanId[] = ["free", "plus", "pro", "max", "xmax"];
+export const PLAN_ORDER: PlanId[] = ["free", "max"];
 
 export function planAllows(plan: PlanId, model: ModelEntry): boolean {
   return PLAN_ORDER.indexOf(plan) >= PLAN_ORDER.indexOf(model.minPlan);

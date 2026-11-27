@@ -10,6 +10,7 @@ import { ModelSelector } from "./model-selector";
 import { GhostStatus } from "./ghost";
 import { useShell, refreshChats } from "./app-shell";
 import { detectLang, type Lang, type StatusStage } from "@/lib/thinking";
+import { DEFAULT_MODEL_ID } from "@/lib/ai/config";
 
 const FOLLOW_UPS = ["Analyze this in more depth", "Give me a concrete example", "Make it shorter", "What are the risks?"];
 
@@ -20,7 +21,7 @@ export function ChatView({ chat, initialMessages }: { chat: { id: string; title:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState(chat.mode);
-  const [model, setModel] = useState("zai/glm-5.3-flash");
+  const [model, setModel] = useState(DEFAULT_MODEL_ID);
   const [models, setModels] = useState<{ id: string; name: string; allowed: boolean; minPlan: string; description: string; creditsPer1kIn: number; creditsPer1kOut: number }[]>([]);
   const [plan, setPlan] = useState("free");
   const [status, setStatus] = useState<{ stage: StatusStage; lang: Lang } | null>(null);
@@ -299,7 +300,7 @@ export function NewChatHome() {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-4 pb-24">
+    <div className="min-h-full flex flex-col items-center justify-center px-4 pb-24">
       <h1 className="text-[28px] font-semibold tracking-tight mb-7 text-center">What&apos;s on the agenda today?</h1>
       <Composer onSend={send} busy={busy} mode={mode} setMode={setMode} />
       {!!settings.showSuggestions && (
