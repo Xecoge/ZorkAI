@@ -49,14 +49,15 @@ function headersFor(key: string): HeadersInit {
 /** Explains an upstream rejection in terms the person can act on. */
 function failureDetail(status: number, upstream: string): string {
   const message = upstream.trim();
-  if (status === 401 || status === 403) {
-    return "Ключ провайдера отклонён (401). Сохраните рабочий ключ в админ-панели.";
-  }
+  // Model-level refusals come first: a 403 for a VIP-only model is not a bad key.
   if (/vip\/svip|premium model/i.test(message)) {
     return "Эта модель требует VIP-доступа на шлюзе. Ответила другая модель.";
   }
-  if (/quota|cooldown|rate limit/i.test(message)) {
+  if (/quota|cooldown|rate limit|resource_exhausted/i.test(message)) {
     return "У ключа провайдера закончилась квота на эту модель. Ответила другая модель.";
+  }
+  if (status === 401 || status === 403) {
+    return `Ключ провайдера отклонён (${status}). Сохраните рабочий ключ в админ-панели.`;
   }
   return message || `Провайдер ответил ${status}.`;
 }

@@ -1,24 +1,30 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { MODELS, PLANS, PLAN_ORDER, planAllows, discountCents, normalizePlan } from "@/lib/ai/config";
+import { MODELS, PLANS, PLAN_ORDER, planAllows, discountCents } from "@/lib/ai/config";
 import { getSummary } from "@/lib/credits";
 import { providerConfigured } from "@/lib/ai/provider";
-import { roleOf } from "@/lib/admin";
+import { effectivePlan, roleOf } from "@/lib/admin";
 
 // The model registry the frontend renders from. All access rules and credit
 // costs are computed here on the server — the client never decides access.
 export async function GET() {
   const user = await getSessionUser();
   const credits = user ? await getSummary(user.id) : null;
-  const plan = normalizePlan(user?.plan ?? credits?.plan);
+  const role = user ? roleOf(user) : "user";
+  const plan = effectivePlan({
+    email: user?.email ?? "",
+    role: user?.role ?? null,
+    plan: user?.plan ?? credits?.plan ?? null,
+  });
+  const unlimited = role === "owner" ? true : credits?.unlimited ?? false;
   return NextResponse.json({
     configured: await providerConfigured(),
     plan,
-    role: user ? roleOf(user) : "user",
+    role,
     status: user ? (user.status ?? "active") : "active",
-    unlimited: credits?.unlimited ?? false,
-    balance: credits?.unlimited ? null : credits?.balance ?? null,
-    remaining: credits?.unlimited ? null : (credits?.remaining ?? null),
+    unlimited,
+    balance: unlimited ? null : credits?.balance ?? null,
+    remaining: unlimited ? null : (credits?.remaining ?? null),
     models: MODELS.map((m) => ({
       id: m.id,
       name: m.name,
@@ -33,7 +39,7 @@ export async function GET() {
       vision: m.vision,
       reasoning: m.reasoning,
     })),
-    plans: PLAN_ORDER.map((id) => {
+    plans: PLAN_ORDER.filter((id) => id !== "xmax" || role === "owner").map((id) => {
       const p = PLANS[id];
       return {
         id,

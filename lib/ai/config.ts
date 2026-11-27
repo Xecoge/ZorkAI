@@ -116,8 +116,6 @@ const CURATED: ModelEntry[] = [
   },
 ];
 
-const CURATED_IDS = new Set(CURATED.map((m) => m.id));
-
 function fromCatalog([id, name, provider, inK, outK, ctx, vision, reasoning]: CatalogRow): ModelEntry {
   return {
     id,
@@ -134,28 +132,48 @@ function fromCatalog([id, name, provider, inK, outK, ctx, vision, reasoning]: Ca
   };
 }
 
-// Every model the gateway advertises, curated ones first so the default
-// routing and the picker's top of list stay stable.
-export const MODELS: ModelEntry[] = [
-  ...CURATED,
-  ...CATALOG.filter((row) => !CURATED_IDS.has(row[0])).map(fromCatalog),
-];
+// Only models that answered a live request with the deployment's provider key
+// are listed. The gateway advertises 453 ids but currently serves these; a
+// picker full of models that answer 429 is worse than a short honest list.
+// Verified 2026-11-27 by probing GET /models + one chat call per id.
+export const VERIFIED_IDS = [
+  "guava3/gemini-3-flash",
+  "guava3/gemini-3.8-flash-tiered",
+  "guava3/gemini-3.5-flash-lite",
+  "guava3/gemini-3.1-flash-lite",
+  "guava3/gemini-3.1-flash-image",
+  "mango13/deepseek-v4.1-flash-1017",
+  "free/tencent/hy4-flash:free",
+  "free/upstage/solar-mini4:free",
+] as const;
 
-export const DEFAULT_MODEL_ID = CURATED[0].id;
+const VERIFIED = new Set<string>(VERIFIED_IDS);
+const CATALOG_BY_ID = new Map(CATALOG.map((row) => [row[0], row]));
+
+export const MODELS: ModelEntry[] = VERIFIED_IDS.map((id) => {
+  const curated = CURATED.find((m) => m.id === id);
+  if (curated) return curated;
+  const row = CATALOG_BY_ID.get(id);
+  return row ? fromCatalog(row) : null;
+}).filter((m): m is ModelEntry => m !== null);
+
+export const DEFAULT_MODEL_ID = "guava3/gemini-3-flash";
 
 const DEFAULT_CHAIN = [
   "guava3/gemini-3-flash",
   "guava3/gemini-3.5-flash-lite",
-  "free/cline-free/nemotron-3.5-super-vl",
+  "guava3/gemini-3.1-flash-lite",
 ];
 
 export const FALLBACKS: Record<string, string[]> = {
-  "guava3/gemini-3-flash": ["guava3/gemini-3.1-flash-lite", "free/cline-free/nemotron-3.5-super-vl"],
-  "guava3/gemini-3.1-flash-lite": ["free/cline-free/nemotron-3.5-super-vl", "free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"],
-  "guava3/gemini-3.5-flash-lite": ["guava3/gemini-3.1-flash-lite", "free/cline-free/nemotron-3.5-super-vl"],
+  "guava3/gemini-3-flash": ["guava3/gemini-3.1-flash-lite", "guava3/gemini-3.5-flash-lite"],
+  "guava3/gemini-3.1-flash-lite": ["guava3/gemini-3-flash", "free/upstage/solar-mini4:free"],
+  "guava3/gemini-3.5-flash-lite": ["guava3/gemini-3.1-flash-lite", "guava3/gemini-3-flash"],
   "guava3/gemini-3.8-flash-tiered": ["guava3/gemini-3-flash", "guava3/gemini-3.1-flash-lite"],
-  "free/cline-free/nemotron-3.5-super-vl": ["free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", "guava3/gemini-3.1-flash-lite"],
-  "free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": ["free/cline-free/nemotron-3.5-super-vl", "guava3/gemini-3.1-flash-lite"],
+  "guava3/gemini-3.1-flash-image": ["guava3/gemini-3-flash"],
+  "mango13/deepseek-v4.1-flash-1017": ["guava3/gemini-3-flash", "guava3/gemini-3.1-flash-lite"],
+  "free/tencent/hy4-flash:free": ["guava3/gemini-3.1-flash-lite", "guava3/gemini-3-flash"],
+  "free/upstage/solar-mini4:free": ["guava3/gemini-3.1-flash-lite", "guava3/gemini-3-flash"],
 };
 
 /** Models to try in order when `id` fails upstream (503, 429, quota, 401). */
@@ -182,8 +200,8 @@ export type PlanConfig = {
 export const PROMO_PERCENT = 50;
 
 // The ladder: Free → Plus → Pro → Max, plus the internal Xecoge Max that the
-// owner hands out. Max is the launch offer: activating it is free and the
-// entitlement is permanent (users.plan + user_credits.unlimited in the DB).
+// owner hands out. Every plan except Free is paid; the 50% launch promotion
+// applies to the price shown at checkout.
 export const PLANS: Record<PlanId, PlanConfig> = {
   free: {
     id: "free",
@@ -228,15 +246,13 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     id: "max",
     name: "Max",
     priceCents: 7000,
-    // 100% off during the launch: activation is a free stub payment and the
-    // entitlement lives in the database, so it never expires.
-    promoPercent: 100,
+    promoPercent: PROMO_PERCENT,
     monthlyCredits: 20_000,
     monthlyTokens: 100_000_000,
     buildRuns: -1,
     requestsPerDay: -1,
     maxOutputTokens: 32_768,
-    features: ["Unlimited requests", "Everything unlocked", "Unlimited Build runs", "Yours forever — free during launch"],
+    features: ["Unlimited requests", "Everything unlocked", "Unlimited Build runs", "Highest limits"],
     blurb: "Everything, at the highest limits",
   },
   xmax: {

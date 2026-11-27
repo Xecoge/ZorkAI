@@ -206,20 +206,20 @@ export function SettingsModal({ pane, setPane, onClose }: { pane: string; setPan
         <div className="border-t border-line px-4 md:px-6 py-3 flex items-center gap-3 shrink-0">
           <button
             onClick={() => setUpgradeOpen(true)}
-            aria-label="Activate Max"
+            aria-label="View plans"
             className="flex items-center gap-3 min-w-0 text-left rounded-xl hover:opacity-80 transition-opacity"
           >
             <span className="w-7 h-7 rounded-full grid place-items-center bg-accent/15 text-accent shrink-0" aria-hidden="true">
               <BadgePercent className="w-4 h-4" />
             </span>
-            <span className="text-[13px] font-medium whitespace-nowrap">Get Max free</span>
-            <span className="text-[13px] text-tertiary truncate hidden sm:block">Unlimited credits and every model, for good</span>
+            <span className="text-[13px] font-medium whitespace-nowrap">Upgrade your plan</span>
+            <span className="text-[13px] text-tertiary truncate hidden sm:block">Free, Plus, Pro and Max — launch promo applied</span>
           </button>
           <button
             onClick={() => setUpgradeOpen(true)}
             className="ml-auto h-8 px-4 rounded-full bg-[#1a1a1a] dark:bg-white text-white dark:text-[#1a1a1a] text-[13px] font-medium hover:opacity-85 transition-opacity"
           >
-            Activate
+            See plans
           </button>
         </div>
       </div>
@@ -257,8 +257,8 @@ function AccountPane({ user, onUpgrade }: { user: { name: string; email: string;
           className="mt-4 w-full flex items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3.5 text-left hover:bg-accent/15 transition-colors"
         >
           <span>
-            <span className="block text-[14px] font-medium">Get Max — free during launch</span>
-            <span className="block text-[12px] text-tertiary">Unlimited credits and every model, yours forever</span>
+            <span className="block text-[14px] font-medium">Upgrade to Plus, Pro or Max</span>
+            <span className="block text-[12px] text-tertiary">More credits and every model, from Plus up</span>
           </span>
           <Sparkles className="w-4 h-4 text-accent shrink-0" aria-hidden="true" />
         </button>

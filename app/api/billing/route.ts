@@ -3,8 +3,9 @@ import { desc, eq } from "drizzle-orm";
 import { db, one } from "@/lib/db/client";
 import { billingHistory, subscriptions } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/auth";
-import { PLANS, normalizePlan } from "@/lib/ai/config";
+import { PLANS } from "@/lib/ai/config";
 import { getSummary, monthlyModelUsage, recentTransactions } from "@/lib/credits";
+import { effectivePlan } from "@/lib/admin";
 
 // Billing & Plan dashboard — every number comes from the database.
 export async function GET() {
@@ -14,8 +15,9 @@ export async function GET() {
   // Xecoge Max rows carry unlimited=1 and must never be touched by the
   // monthly-allowance renewal, which would reset their plan row.
   const credits = await getSummary(user.id);
-  const planId = normalizePlan(user.plan);
+  const planId = effectivePlan({ email: user.email, role: user.role, plan: user.plan });
   const planCfg = PLANS[planId];
+  const unlimited = credits.unlimited || planId === "xmax";
   const sub = await one(
     db.select().from(subscriptions).where(eq(subscriptions.userId, user.id)).orderBy(desc(subscriptions.createdAt)),
   );
@@ -33,16 +35,16 @@ export async function GET() {
       id: planId,
       name: planCfg.name,
       priceCents: planCfg.priceCents,
-      unlimited: credits.unlimited,
+      unlimited,
       status: sub?.status ?? "active",
       renewsAt: credits.renewsAt,
     },
     credits: {
-      unlimited: credits.unlimited,
-      monthlyAllowance: credits.unlimited ? null : credits.monthlyAllowance,
+      unlimited,
+      monthlyAllowance: unlimited ? null : credits.monthlyAllowance,
       used: credits.used,
-      remaining: credits.unlimited ? null : credits.remaining,
-      balance: credits.unlimited ? null : credits.balance,
+      remaining: unlimited ? null : credits.remaining,
+      balance: unlimited ? null : credits.balance,
     },
     usage: {
       tokensIn: credits.tokensIn,

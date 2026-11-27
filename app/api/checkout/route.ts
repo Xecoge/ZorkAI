@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { billingHistory } from "@/lib/db/schema";
+import { billingHistory, userCredits, users } from "@/lib/db/schema";
 import { getSessionUser, newId } from "@/lib/auth";
 import { PLANS, PROMO_PERCENT, discountCents, type PlanId } from "@/lib/ai/config";
 
-// Stripe-compatible checkout, kept for when paid renewals open. Right now Max
-// is free during launch and granted by POST /api/upgrade, so this endpoint is a
-// stub: it charges nothing and tells the client where activation lives.
-const PAYMENTS_OPEN = false;
+// Stripe checkout for the paid ladder (Plus / Pro / Max). Payments open as soon
+// as STRIPE_SECRET_KEY is set; until then the endpoint says so plainly instead
+// of charging or silently granting a plan. The internal Xecoge Max is never
+// sold here — staff grant it from the admin panel. Switching to Free is a
+// direct downgrade and needs no payment.
 const STRIPE_API = "https://api.stripe.com/v1";
 
 export async function POST(req: NextRequest) {
@@ -15,23 +17,25 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => null);
   const planId = String(body?.plan || "") as PlanId;
-  if (!(planId in PLANS) || planId === "free") {
+  if (!(planId in PLANS) || planId === "xmax") {
     return NextResponse.json({ error: "Unknown plan." }, { status: 400 });
   }
-  if (!PAYMENTS_OPEN) {
-    return NextResponse.json(
-      { stub: true, error: "Payments are not open yet. Max is free during launch — activate it in the app." },
-      { status: 200 },
-    );
+
+  if (planId === "free") {
+    await db.update(users).set({ plan: "free" }).where(eq(users.id, user.id));
+    await db.update(userCredits).set({ plan: "free", unlimited: 0 }).where(eq(userCredits.userId, user.id));
+    return NextResponse.json({ ok: true, plan: "free" });
   }
+
   const plan = PLANS[planId];
-  const amountCents = discountCents(plan); // 50% promo applied at checkout
+  const amountCents = discountCents(plan); // launch promo applied at checkout
 
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) {
     return NextResponse.json(
       {
-        error: "Payments are not configured on this deployment. Set STRIPE_SECRET_KEY (and the webhook secret) to enable checkout.",
+        error:
+          "Payments aren't open on this deployment yet. The owner can grant this plan from the admin panel.",
         configured: false,
       },
       { status: 501 },

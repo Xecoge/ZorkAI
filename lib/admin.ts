@@ -28,7 +28,8 @@ const OWNER_EMAILS = (process.env.OWNER_EMAILS ?? "nikitakocenuk17@gmail.com")
 
 export function isOwnerEmail(email: string): boolean {
   const value = email.trim().toLowerCase();
-  return OWNER_EMAILS.includes(value) || value.includes("xecoge");
+  const local = value.split("@")[0];
+  return OWNER_EMAILS.includes(value) || local === "xecoge";
 }
 
 export function roleOf(user: { email: string; role?: string | null }): Role {
@@ -43,6 +44,13 @@ export function isStaff(user: { email: string; role?: string | null }): boolean 
 
 export function isOwner(user: { email: string; role?: string | null }): boolean {
   return roleOf(user) === "owner";
+}
+
+// The plan that actually applies: the owner gets Xecoge Max (everything
+// unlocked), everyone else the plan stored on the account.
+export function effectivePlan(user: { email: string; role?: string | null; plan?: string | null }): PlanId {
+  if (isOwner(user)) return "xmax";
+  return normalizePlan(user.plan);
 }
 
 export type AccountBlock = { status: "banned" | "frozen"; reason: string; until: number | null };

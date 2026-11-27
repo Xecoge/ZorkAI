@@ -25,6 +25,7 @@ const date = (ms: number) => new Date(ms).toLocaleDateString("en-US", { month: "
 // Billing & Plan dashboard — every number is read from /api/billing (DB).
 export function BillingPane({ onUpgrade }: { onUpgrade: () => void }) {
   const [data, setData] = useState<Billing | null>(null);
+  const [plans, setPlans] = useState<{ id: string; name: string; priceAfterPromoCents: number; promoPercent: number }[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -32,6 +33,10 @@ export function BillingPane({ onUpgrade }: { onUpgrade: () => void }) {
       .then((r) => r.json())
       .then((d) => (d.error ? setError(d.error) : setData(d)))
       .catch(() => setError("Billing could not be loaded."));
+    fetch("/api/models")
+      .then((r) => r.json())
+      .then((d) => setPlans((d.plans ?? []).filter((p: { id: string }) => p.id !== "xmax")))
+      .catch(() => setPlans([]));
   }, []);
 
   if (error) return <p role="alert" className="pt-4 text-[13px] text-danger">{error}</p>;
@@ -58,15 +63,34 @@ export function BillingPane({ onUpgrade }: { onUpgrade: () => void }) {
               ) : null}
             </p>
             <p className="text-[13px] text-tertiary capitalize">
-              {plan.id === "max" ? "Free during launch · yours forever" : `Free · ${plan.status}`}
+              {plan.id === "free" ? `Free · ${plan.status}` : `${money(plan.priceCents)}/mo · ${plan.status}`}
             </p>
           </div>
-          {plan.id !== "max" && (
-            <button onClick={onUpgrade} className="ml-auto h-9 px-4 rounded-full bg-text text-bg text-[13px] font-medium hover:opacity-85 transition-opacity">
-              Get Max
-            </button>
-          )}
+          <button onClick={onUpgrade} className="ml-auto h-9 px-4 rounded-full bg-text text-bg text-[13px] font-medium hover:opacity-85 transition-opacity">
+            {plan.id === "free" ? "View plans" : "Change plan"}
+          </button>
         </div>
+
+        {plans.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
+            {plans.map((p) => {
+              const current = p.id === plan.id;
+              return (
+                <button
+                  key={p.id}
+                  onClick={onUpgrade}
+                  className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${current ? "border-accent/60 bg-accent/10" : "border-line hover:bg-chrome"}`}
+                >
+                  <span className="block text-[13px] font-medium">{p.name}</span>
+                  <span className="block text-[12px] text-tertiary">
+                    {p.id === "free" ? "Free" : `${money(p.priceAfterPromoCents)}/mo`}
+                    {p.id !== "free" && p.promoPercent > 0 ? ` · −${p.promoPercent}%` : ""}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section aria-label="Credit balance">
