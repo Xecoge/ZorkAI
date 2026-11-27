@@ -21,13 +21,13 @@ export function ChatView({ chat, initialMessages }: { chat: { id: string; title:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState(chat.mode);
-  const [model, setModel] = useState(DEFAULT_MODEL_ID);
+  const searchParams = useSearchParams();
+  const [model, setModel] = useState(() => searchParams.get("m") || DEFAULT_MODEL_ID);
   const [models, setModels] = useState<{ id: string; name: string; allowed: boolean; minPlan: string; description: string; creditsPer1kIn: number; creditsPer1kOut: number }[]>([]);
   const [plan, setPlan] = useState("free");
   const [status, setStatus] = useState<{ stage: StatusStage; lang: Lang } | null>(null);
   const { settings, openSearch } = useShell();
   const bottomRef = useRef<HTMLDivElement | null>(null);
-  const searchParams = useSearchParams();
   const router = useRouter();
   const sentInitial = useRef(false);
 
@@ -284,7 +284,8 @@ function ActionBtn({ children, label, onClick, active }: { children: React.React
 export function NewChatHome() {
   const [mode, setMode] = useState("fast");
   const [busy, setBusy] = useState(false);
-  const { settings } = useShell();
+  const { settings, user } = useShell();
+  const [model, setModel] = useState(DEFAULT_MODEL_ID);
   const router = useRouter();
 
   async function send(text: string) {
@@ -296,13 +297,19 @@ export function NewChatHome() {
       body: JSON.stringify({ mode }),
     });
     const data = await res.json();
-    router.push(`/app/chat/${data.chat.id}?q=${encodeURIComponent(text)}`);
+    router.push(`/app/chat/${data.chat.id}?q=${encodeURIComponent(text)}&m=${encodeURIComponent(model)}`);
   }
 
   return (
-    <div className="min-h-full flex flex-col items-center justify-center px-4 pb-24">
+    <div className="flex-1 min-h-full w-full flex flex-col items-center justify-center px-4 pb-24">
       <h1 className="text-[28px] font-semibold tracking-tight mb-7 text-center">What&apos;s on the agenda today?</h1>
-      <Composer onSend={send} busy={busy} mode={mode} setMode={setMode} />
+      <Composer
+        onSend={send}
+        busy={busy}
+        mode={mode}
+        setMode={setMode}
+        modelSelector={<ModelSelector model={model} setModel={setModel} plan={user?.plan ?? "free"} />}
+      />
       {!!settings.showSuggestions && (
         <div className="w-full max-w-[756px] mt-3 flex flex-col gap-1">
           {[

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Check, Sparkles, Ghost as GhostIcon } from "lucide-react";
 import { GhostLoader } from "./ghost";
 
@@ -32,9 +32,16 @@ export function UpgradeModal({
   const [activated, setActivated] = useState(currentPlan === "max");
   const [notice, setNotice] = useState("");
   const [closing, setClosing] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearCloseTimer = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+  };
+  useEffect(() => clearCloseTimer, []);
 
   useEffect(() => {
     if (!open) return;
+    clearCloseTimer();
     setClosing(false);
     setActivated(currentPlan === "max");
     fetch("/api/models")
@@ -56,7 +63,8 @@ export function UpgradeModal({
 
   function close() {
     setClosing(true);
-    setTimeout(onClose, 170);
+    clearCloseTimer();
+    closeTimer.current = setTimeout(onClose, 170);
   }
 
   async function activate() {

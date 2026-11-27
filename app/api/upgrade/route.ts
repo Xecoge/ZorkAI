@@ -4,6 +4,7 @@ import { db, one } from "@/lib/db/client";
 import { billingHistory, subscriptions, userCredits, users } from "@/lib/db/schema";
 import { getSessionUser, newId } from "@/lib/auth";
 import { getSummary } from "@/lib/credits";
+import { normalizePlan } from "@/lib/ai/config";
 
 // Max launch offer: one activation per account, free, permanent. The
 // entitlement lives in the database (users.plan = "max" and
@@ -14,7 +15,7 @@ import { getSummary } from "@/lib/credits";
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  return NextResponse.json({ plan: user.plan, max: user.plan === "max" });
+  return NextResponse.json({ plan: normalizePlan(user.plan), max: normalizePlan(user.plan) === "max" });
 }
 
 export async function POST() {

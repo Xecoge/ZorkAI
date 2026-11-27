@@ -2,13 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Zap } from "lucide-react";
-import { MODELS, planAllows, type PlanId } from "@/lib/ai/config";
+import { MODELS, planAllows, normalizePlan } from "@/lib/ai/config";
 
 export function ModelSelector({ model, setModel, plan }: { model: string; setModel: (id: string) => void; plan: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   const current = MODELS.find((m) => m.id === model) ?? MODELS[0];
-  const planId = (plan as PlanId) || "free";
+  const planId = normalizePlan(plan);
 
   useEffect(() => {
     if (!open) return;

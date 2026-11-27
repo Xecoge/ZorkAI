@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { MODELS, PLANS, PLAN_ORDER, planAllows, discountCents, type PlanId } from "@/lib/ai/config";
+import { MODELS, PLANS, PLAN_ORDER, planAllows, discountCents, normalizePlan } from "@/lib/ai/config";
 import { getSummary } from "@/lib/credits";
 import { providerConfigured } from "@/lib/ai/provider";
 
@@ -9,7 +9,7 @@ import { providerConfigured } from "@/lib/ai/provider";
 export async function GET() {
   const user = await getSessionUser();
   const credits = user ? await getSummary(user.id) : null;
-  const plan = (credits?.plan ?? "free") as PlanId;
+  const plan = normalizePlan(user?.plan ?? credits?.plan);
   return NextResponse.json({
     configured: providerConfigured(),
     plan,

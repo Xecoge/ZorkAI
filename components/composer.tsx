@@ -55,7 +55,7 @@ export function Composer({ onSend, busy, mode, setMode, modelSelector }: {
             type="button"
             aria-label="Add attachment"
             onClick={() => setAttachOpen((v) => !v)}
-            className="w-10 h-10 shrink-0 grid place-items-center rounded-full bg-pane text-secondary hover:bg-hover transition-colors"
+            className="relative z-50 w-10 h-10 shrink-0 grid place-items-center rounded-full bg-pane text-secondary hover:bg-hover transition-colors"
           >
             <Plus className="w-[18px] h-[18px]" />
           </button>
@@ -63,8 +63,8 @@ export function Composer({ onSend, busy, mode, setMode, modelSelector }: {
             <>
               <div className="fixed inset-0 z-40" onClick={() => setAttachOpen(false)} />
               <div className="pop-in absolute bottom-12 left-0 z-50 w-[220px] rounded-2xl border border-line bg-bg shadow-pop p-1.5 text-[14px]">
-                <AttachItem icon={Paperclip} label="Attach file" hint="Needs a storage provider" onClick={() => setNotice("File attachments need a storage provider on this deployment.")} />
-                <AttachItem icon={ImagePlus} label="Upload image" hint="Needs a storage provider" onClick={() => setNotice("Image uploads need a storage provider on this deployment.")} />
+                <AttachItem icon={Paperclip} label="Attach file" hint="Needs a storage provider" onClick={() => { setAttachOpen(false); setNotice("File attachments need a storage provider on this deployment."); }} />
+                <AttachItem icon={ImagePlus} label="Upload image" hint="Needs a storage provider" onClick={() => { setAttachOpen(false); setNotice("Image uploads need a storage provider on this deployment."); }} />
                 <AttachItem icon={Globe} label="Search the web" hint="Latest sources" onClick={() => { setAttachOpen(false); onSend("Search the web: "); }} />
               </div>
             </>
@@ -93,7 +93,7 @@ export function Composer({ onSend, busy, mode, setMode, modelSelector }: {
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              className="xq-mode-btn h-9 px-2.5 flex items-center gap-1 rounded-full text-[14px] font-medium hover:bg-hover transition-colors"
+              className="xq-mode-btn relative z-50 h-9 px-2.5 flex items-center gap-1 rounded-full text-[14px] font-medium hover:bg-hover transition-colors"
             >
               <CurrentIcon className="xq-mode-icon w-3.5 h-3.5 text-secondary" />
               {current.label}

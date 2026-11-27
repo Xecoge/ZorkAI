@@ -5,7 +5,7 @@ import { db, one } from "@/lib/db/client";
 import { chats, messages, projects, userCredits } from "@/lib/db/schema";
 import { getSessionUser, newId } from "@/lib/auth";
 import { normalizeMode, providerConfigured, streamCompletion, type ChatMessage } from "@/lib/ai/provider";
-import { creditsFor, getModel, planAllows, PLANS, DEFAULT_MODEL_ID, fallbacksFor, type PlanId } from "@/lib/ai/config";
+import { creditsFor, getModel, planAllows, PLANS, DEFAULT_MODEL_ID, fallbacksFor, normalizePlan, type PlanId } from "@/lib/ai/config";
 import { ensureCredits, getSummary, refundHold, reserveCredits, settleCredits } from "@/lib/credits";
 
 type Params = { params: Promise<{ id: string }> };
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   // must never rewrite their plan or allowance.
   const [creditsRow] = await db.select().from(userCredits).where(eq(userCredits.userId, user.id)).limit(1);
   const credits = creditsRow?.unlimited === 1 ? await getSummary(user.id) : await ensureCredits(user.id);
-  const plan: PlanId = (credits.plan as PlanId) in PLANS ? (credits.plan as PlanId) : "free";
+  const plan: PlanId = normalizePlan(user.plan ?? credits.plan);
   const requestedModel = typeof body?.model === "string" ? body.model : null;
   const model = (requestedModel && getModel(requestedModel)) || getModel(DEFAULT_MODEL_ID)!;
   if (!planAllows(plan, model)) {

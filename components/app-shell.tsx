@@ -178,7 +178,7 @@ export function AppShell({ user, initialSettings, children }: {
               <PanelLeft className="w-[18px] h-[18px]" />
             </button>
           )}
-          <main className="flex-1 min-h-0 overflow-y-auto">{children}</main>
+          <main className="flex-1 min-h-0 overflow-y-auto flex flex-col">{children}</main>
         </div>
       </div>
 
@@ -258,7 +258,7 @@ function AccountMenu({ user }: { user: User }) {
       {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-2.5 h-11 px-2 rounded-xl hover:bg-hover transition-colors"
+        className="relative z-50 w-full flex items-center gap-2.5 h-11 px-2 rounded-xl hover:bg-hover transition-colors"
       >
         <span
           className="w-7 h-7 rounded-full grid place-items-center text-white text-[12px] font-semibold shrink-0"

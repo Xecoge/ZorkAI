@@ -97,20 +97,6 @@ export const MODELS: ModelEntry[] = [
     status: "available",
   },
   {
-    id: "free/nvidia/nemotron-3-ultra-550b-a55b:free",
-    name: "Nemotron 3 Ultra 550B",
-    provider: "nemotron",
-    description: "Largest open model on the gateway",
-    minPlan: "free",
-    creditsPer1kIn: 0.02,
-    creditsPer1kOut: 0.06,
-    contextLength: 262_144,
-    maxOutput: 65_536,
-    vision: false,
-    reasoning: true,
-    status: "available",
-  },
-  {
     id: "free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
     name: "Nemotron 3 Nano Omni",
     provider: "nemotron",
@@ -122,20 +108,6 @@ export const MODELS: ModelEntry[] = [
     maxOutput: 32_768,
     vision: true,
     reasoning: true,
-    status: "available",
-  },
-  {
-    id: "free/tencent/hy4-flash:free",
-    name: "Hunyuan 4 Flash",
-    provider: "hunyuan",
-    description: "Long-context Chinese-English model",
-    minPlan: "free",
-    creditsPer1kIn: 0.01,
-    creditsPer1kOut: 0.03,
-    contextLength: 262_144,
-    maxOutput: 32_768,
-    vision: false,
-    reasoning: false,
     status: "available",
   },
 ];
@@ -151,10 +123,8 @@ export const FALLBACKS: Record<string, string[]> = {
   "guava3/gemini-3.1-flash-lite": ["free/cline-free/nemotron-3.5-super-vl", "free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"],
   "guava3/gemini-3.5-flash-lite": ["guava3/gemini-3.1-flash-lite", "free/cline-free/nemotron-3.5-super-vl"],
   "guava3/gemini-3.8-flash-tiered": ["guava3/gemini-3-flash", "guava3/gemini-3.1-flash-lite"],
-  "free/cline-free/nemotron-3.5-super-vl": ["free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"],
-  "free/nvidia/nemotron-3-ultra-550b-a55b:free": ["guava3/gemini-3.1-flash-lite", "free/cline-free/nemotron-3.5-super-vl"],
-  "free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": ["free/cline-free/nemotron-3.5-super-vl"],
-  "free/tencent/hy4-flash:free": ["guava3/gemini-3.1-flash-lite", "free/cline-free/nemotron-3.5-super-vl"],
+  "free/cline-free/nemotron-3.5-super-vl": ["free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", "guava3/gemini-3.1-flash-lite"],
+  "free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": ["free/cline-free/nemotron-3.5-super-vl", "guava3/gemini-3.1-flash-lite"],
 };
 
 export function fallbacksFor(id: string): string[] {
@@ -223,6 +193,14 @@ export const PLAN_ORDER: PlanId[] = ["free", "max"];
 
 export function planAllows(plan: PlanId, model: ModelEntry): boolean {
   return PLAN_ORDER.indexOf(plan) >= PLAN_ORDER.indexOf(model.minPlan);
+}
+
+// Plans stored by older releases ("xmax" from the admin endpoint, or any other
+// legacy label) must never lock a paying account out of the picker: the top
+// tier maps to Max, everything else to Free.
+export function normalizePlan(plan: string | null | undefined): PlanId {
+  if (plan === "max" || plan === "xmax") return "max";
+  return "free";
 }
 
 export function getModel(id: string): ModelEntry | undefined {
