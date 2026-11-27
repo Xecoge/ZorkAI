@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { User, Sun, SlidersHorizontal, Bell, SlidersVertical, Plug, Library, Clock, ShieldCheck, Search, X, ChevronLeft, Sparkles, CreditCard, BadgePercent } from "lucide-react";
+import { User, Sun, SlidersHorizontal, Bell, SlidersVertical, Plug, Library, Clock, ShieldCheck, Search, X, ChevronLeft, Sparkles, CreditCard, BadgePercent, Shield } from "lucide-react";
 import { useShell, type Settings } from "./app-shell";
 import { UpgradeModal } from "./upgrade-modal";
 import { BillingPane } from "./billing-pane";
+import { AdminPanel } from "./admin-panel";
 
 type Patch = (body: Partial<Settings>) => void;
 
@@ -20,6 +21,8 @@ const PANES = [
   { id: "Automations", icon: Clock, hint: "Scheduled recurring prompts" },
   { id: "Data Controls", icon: ShieldCheck, hint: "Memory and training" },
 ];
+
+const ADMIN_PANE = { id: "Admin", icon: Shield, hint: "Accounts, bans, plans and provider key" };
 
 export function SettingsModal({ pane, setPane, onClose }: { pane: string; setPane: (p: string) => void; onClose: () => void }) {
   const { user, settings, setSettings, theme, setTheme } = useShell();
@@ -84,7 +87,9 @@ export function SettingsModal({ pane, setPane, onClose }: { pane: string; setPan
     }
   }
 
-  const visible = PANES.filter((p) => (p.id + " " + p.hint).toLowerCase().includes(filter.toLowerCase()));
+  const isStaff = user.role === "admin" || user.role === "owner";
+  const panes = isStaff ? [...PANES, ADMIN_PANE] : PANES;
+  const visible = panes.filter((p) => (p.id + " " + p.hint).toLowerCase().includes(filter.toLowerCase()));
 
   function selectSection(id: string) {
     setPane(id);
@@ -163,6 +168,7 @@ export function SettingsModal({ pane, setPane, onClose }: { pane: string; setPan
             <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 pb-6">
               <div key={pane} className="rise-in">
                 {pane === "Account" && <AccountPane user={user} onUpgrade={() => setUpgradeOpen(true)} />}
+                {pane === "Admin" && <AdminPanel />}
                 {pane === "Billing & Plan" && <BillingPane onUpgrade={() => setUpgradeOpen(true)} />}
                 {pane === "Appearance" && <AppearancePane settings={settings} patch={patch} theme={theme} setTheme={setTheme} />}
                 {pane === "Behavior" && (

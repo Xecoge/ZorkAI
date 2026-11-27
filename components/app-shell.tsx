@@ -17,7 +17,7 @@ type SidebarData = {
   projects: { id: string; name: string }[];
 };
 
-export type User = { id: string; email: string; name: string; plan: string; avatarColor: string };
+export type User = { id: string; email: string; name: string; plan: string; avatarColor: string; role?: string; status?: string };
 export type Settings = {
   theme: string; wrapCode: number; reduceMotion: number; showSuggestions: number;
   customInstructions: string; memory: number; improvedModel: number; notifications: number; language: string;

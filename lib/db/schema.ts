@@ -11,6 +11,34 @@ export const users = pgTable("users", {
   avatarColor: text("avatar_color").notNull().default("#1084fe"),
   plan: text("plan").notNull().default("free"),
   createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  role: text("role").notNull().default("user"), // user | admin | owner
+  status: text("status").notNull().default("active"), // active | banned | frozen
+  statusReason: text("status_reason").notNull().default(""),
+  statusUntil: bigint("status_until", { mode: "number" }), // null = permanent
+});
+
+// Every staff action is recorded so a ban or a plan grant can always be traced
+// back to the account that made it.
+export const adminAudit = pgTable(
+  "admin_audit",
+  {
+    id: text("id").primaryKey(),
+    actorId: text("actor_id").notNull(),
+    actorEmail: text("actor_email").notNull().default(""),
+    action: text("action").notNull(),
+    targetId: text("target_id"),
+    detail: text("detail").notNull().default(""),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  },
+  (t) => [index("admin_audit_created_idx").on(t.createdAt)],
+);
+
+// Server-side runtime settings the owner can change without a redeploy.
+// The provider API key lives here when it is not supplied by the environment.
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull().default(""),
+  updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
 });
 
 export const sessions = pgTable(

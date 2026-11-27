@@ -7,6 +7,7 @@ import { getSessionUser, newId } from "@/lib/auth";
 import { normalizeMode, providerConfigured, streamCompletion, type ChatMessage } from "@/lib/ai/provider";
 import { creditsFor, getModel, planAllows, PLANS, DEFAULT_MODEL_ID, fallbacksFor, normalizePlan, type PlanId } from "@/lib/ai/config";
 import { ensureCredits, getSummary, refundHold, reserveCredits, settleCredits } from "@/lib/credits";
+import { accountBlock, blockMessage } from "@/lib/admin";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -28,6 +29,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  const block = accountBlock(user);
+  if (block) return NextResponse.json({ error: blockMessage(block), blocked: block.status }, { status: 403 });
   const chat = await one(db.select().from(chats).where(and(eq(chats.id, id), eq(chats.userId, user.id))));
   if (!chat) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -101,10 +104,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
 
-  if (!providerConfigured()) {
+  if (!(await providerConfigured())) {
     await refundHold(user.id, holdId, heldAmount);
     return NextResponse.json(
-      { error: "AI provider is not configured on this deployment (DRAKE_API_KEY missing)." },
+      { error: "Ключ провайдера не настроен: сохраните его в админ-панели (или задайте DRAKE_API_KEY)." },
       { status: 503 },
     );
   }

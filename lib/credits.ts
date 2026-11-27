@@ -11,11 +11,12 @@ const PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-// Max is a permanent entitlement stored as users.plan, so it must win over a
-// stale user_credits row: a Max account is never capped.
+// Max and Xecoge Max are permanent entitlements stored as users.plan, so they
+// must win over a stale user_credits row: those accounts are never capped.
 async function isMaxPlan(tx: Tx, userId: string): Promise<boolean> {
   const [u] = await tx.select({ plan: users.plan }).from(users).where(eq(users.id, userId)).limit(1);
-  return normalizePlan(u?.plan) === "max";
+  const plan = normalizePlan(u?.plan);
+  return plan === "max" || plan === "xmax";
 }
 
 export type CreditSummary = {
@@ -71,7 +72,8 @@ export async function getSummary(userId: string): Promise<CreditSummary> {
   const [row] = await db.select().from(userCredits).where(eq(userCredits.userId, userId)).limit(1);
   if (!row) return ensureCredits(userId);
   const [account] = await db.select({ plan: users.plan }).from(users).where(eq(users.id, userId)).limit(1);
-  const maxPlan = normalizePlan(account?.plan ?? row.plan) === "max";
+  const plan = normalizePlan(account?.plan ?? row.plan);
+  const maxPlan = plan === "max" || plan === "xmax";
   const unlimited = row.unlimited === 1 || maxPlan;
   return {
     plan: row.plan as PlanId,

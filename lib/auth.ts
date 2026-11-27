@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { db, one } from "@/lib/db/client";
 import { users, sessions, settings } from "@/lib/db/schema";
+import { ensureSchema } from "@/lib/db/ensure";
 
 const SESSION_COOKIE = "grokish_session";
 const SESSION_DAYS = 30;
@@ -13,6 +14,10 @@ export type SessionUser = {
   name: string;
   plan: string;
   avatarColor: string;
+  role: string;
+  status: string;
+  statusReason: string;
+  statusUntil: number | null;
 };
 
 export function hashPassword(password: string): string {
@@ -75,6 +80,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const signed = jar.get(SESSION_COOKIE)?.value;
   const raw = signed ? unsignToken(signed) : null;
   if (!raw) return null;
+  // Columns added after the first deploy are created on demand.
+  await ensureSchema();
   const row = await one(
     db
       .select({
@@ -83,6 +90,10 @@ export async function getSessionUser(): Promise<SessionUser | null> {
         name: users.name,
         plan: users.plan,
         avatarColor: users.avatarColor,
+        role: users.role,
+        status: users.status,
+        statusReason: users.statusReason,
+        statusUntil: users.statusUntil,
         expiresAt: sessions.expiresAt,
       })
       .from(sessions)

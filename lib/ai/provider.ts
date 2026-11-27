@@ -4,6 +4,9 @@
 // to the browser. Streaming uses SSE with stream_options.include_usage so the
 // final event carries true token usage for billing.
 import { DRAKE_BASE_URL } from "@/lib/ai/config";
+import { getSetting } from "@/lib/settings";
+
+export const PROVIDER_KEY_SETTING = "drake_api_key";
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -26,18 +29,42 @@ export type ProviderResult = {
 const SYSTEM_PROMPT =
   "You are Xecoge, a helpful AI assistant in a premium chat app. Answer in clean markdown with headings, lists, tables and fenced code blocks where useful. Be concise and accurate. Reply in the language the user writes in.";
 
-function authHeaders(): HeadersInit {
-  const key = (process.env.DRAKE_API_KEY || process.env.MLAI_API_KEY || "").trim();
-  if (!key) throw new Error("DRAKE_API_KEY is not configured");
+// The provider key is read server-side only. A key saved in the admin panel
+// wins over the deployment variable, so a stale DRAKE_API_KEY can be replaced
+// from the UI without a redeploy. MLAI_API_KEY is never used: those platform
+// keys are not valid on this gateway.
+export async function providerKey(): Promise<string | undefined> {
+  const stored = await getSetting(PROVIDER_KEY_SETTING);
+  if (stored) return stored;
+  return (process.env.DRAKE_API_KEY || "").trim() || undefined;
+}
+
+function headersFor(key: string): HeadersInit {
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${key}`,
   };
 }
 
-export function providerConfigured(): boolean {
-  return Boolean((process.env.DRAKE_API_KEY || process.env.MLAI_API_KEY || "").trim());
+/** Explains an upstream rejection in terms the person can act on. */
+function failureDetail(status: number, upstream: string): string {
+  const message = upstream.trim();
+  if (status === 401 || status === 403) {
+    return "Ключ провайдера отклонён (401). Сохраните рабочий ключ в админ-панели.";
+  }
+  if (/vip\/svip|premium model/i.test(message)) {
+    return "Эта модель требует VIP-доступа на шлюзе. Ответила другая модель.";
+  }
+  if (/quota|cooldown|rate limit/i.test(message)) {
+    return "У ключа провайдера закончилась квота на эту модель. Ответила другая модель.";
+  }
+  return message || `Провайдер ответил ${status}.`;
 }
+
+export async function providerConfigured(): Promise<boolean> {
+  return Boolean(await providerKey());
+}
+
 
 /**
  * Stream a chat completion from the Drake gateway. Yields the id of the model
@@ -68,25 +95,36 @@ export async function* streamCompletion(opts: {
     ? AbortSignal.any([opts.signal, AbortSignal.timeout(120_000)])
     : AbortSignal.timeout(120_000);
 
+  const key = await providerKey();
+  if (!key) {
+    yield {
+      type: "error",
+      message: "Ключ провайдера не настроен. Откройте админ-панель и сохраните ключ.",
+    };
+    return;
+  }
+  const headers = headersFor(key);
+
   let res: Response | null = null;
   let served = opts.model;
   let detail = "";
   for (const candidate of [opts.model, ...(opts.fallbacks ?? [])]) {
     if (opts.signal?.aborted) break;
     try {
-      const r = await fetch(url, { method: "POST", headers: authHeaders(), signal, body: body(candidate) });
+      const r = await fetch(url, { method: "POST", headers, signal, body: body(candidate) });
       if (r.ok && r.body) {
         res = r;
         served = candidate;
         break;
       }
-      detail = `Provider error ${r.status}`;
+      let upstream = "";
       try {
         const errBody = await r.json();
-        if (errBody?.error?.message) detail = `${detail}: ${errBody.error.message}`;
+        upstream = String(errBody?.error?.message ?? "");
       } catch {
         /* keep status-only detail */
       }
+      detail = failureDetail(r.status, upstream);
     } catch (e) {
       if (opts.signal?.aborted) break;
       detail = e instanceof Error ? `Provider error: ${e.message}` : "Provider error";
@@ -138,12 +176,14 @@ export async function complete(opts: {
   temperature?: number;
   timeoutMs?: number;
 }): Promise<ProviderResult> {
+  const key = await providerKey();
+  if (!key) throw new Error("Ключ провайдера не настроен: сохраните его в админ-панели.");
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 30_000);
   try {
     const res = await fetch(`${DRAKE_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
-      headers: authHeaders(),
+      headers: headersFor(key),
       signal: controller.signal,
       body: JSON.stringify({
         model: opts.model,
@@ -152,7 +192,16 @@ export async function complete(opts: {
         temperature: opts.temperature ?? 0.7,
       }),
     });
-    if (!res.ok) throw new Error(`Provider error ${res.status}`);
+    if (!res.ok) {
+      let upstream = "";
+      try {
+        const errBody = await res.json();
+        upstream = String(errBody?.error?.message ?? "");
+      } catch {
+        /* status-only */
+      }
+      throw new Error(failureDetail(res.status, upstream));
+    }
     const data = (await res.json()) as {
       choices?: { message?: { content?: string } }[];
       usage?: { prompt_tokens?: number; completion_tokens?: number };

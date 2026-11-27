@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessionUser, ensureSettings } from "@/lib/auth";
+import { roleOf } from "@/lib/admin";
 import { AppShell } from "@/components/app-shell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -7,7 +8,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect("/sign-in");
   const settings = (await ensureSettings(user.id))!;
   return (
-    <AppShell user={user} initialSettings={settings}>
+    <AppShell user={{ ...user, role: roleOf(user) }} initialSettings={settings}>
       {children}
     </AppShell>
   );

@@ -1,37 +1,41 @@
 // Central Xecoge AI configuration: model registry and subscription plans.
 // Everything the credit/billing/model-access system enforces lives here.
-// Model IDs below were verified live against the Drake gateway on 2026-11-27
-// (GET {DRAKE_BASE_URL}/models + one real completion each). Do not edit an ID
-// without re-verifying: the gateway rejects models whose upstream is out of quota.
+// The full gateway catalogue lives in lib/ai/catalog.ts (generated from the
+// live /models response); the curated entries below carry hand-checked limits
+// and are the ones the default routing prefers.
+import { CATALOG, type CatalogRow } from "@/lib/ai/catalog";
 
 export const DRAKE_BASE_URL = process.env.DRAKE_BASE_URL ?? "https://api.drakezakuru.com/v1";
 
-export type PlanId = "free" | "max";
+export type PlanId = "free" | "plus" | "pro" | "max" | "xmax";
+
+// Lowest to highest. `planAllows` compares positions in this list.
+export const PLAN_ORDER: PlanId[] = ["free", "plus", "pro", "max", "xmax"];
 
 export type ModelEntry = {
   id: string; // gateway model id used for routing
   name: string; // only this is shown in the picker — never the vendor
-  provider: string; // gateway pool; kept for diagnostics, never rendered
-  description: string;
-  minPlan: PlanId; // lowest plan that may use this model
+  provider: string; // gateway pool, kept for diagnostics only
+  minPlan: PlanId;
+  description?: string;
   creditsPer1kIn: number; // credits per 1,000 input tokens
   creditsPer1kOut: number; // credits per 1,000 output tokens
   contextLength: number;
   maxOutput: number;
   vision: boolean;
   reasoning: boolean;
-  status: "available" | "degraded" | "offline";
+  status: "available" | "degraded";
 };
 
-// Ordered fastest-first: the first entry is the default so a new chat answers
-// in about a second. Every id below answered a live completion on 2026-11-27.
-export const MODELS: ModelEntry[] = [
+// Hand-checked against the gateway: these answer reliably and are the chain
+// used when a newly added model returns 429/401/503 (see fallbacksFor).
+const CURATED: ModelEntry[] = [
   {
     id: "guava3/gemini-3-flash",
     name: "Gemini 3 Flash",
-    provider: "gemini",
-    description: "Quick, capable default",
+    provider: "guava3",
     minPlan: "free",
+    description: "Fast, capable default",
     creditsPer1kIn: 0.02,
     creditsPer1kOut: 0.08,
     contextLength: 1_000_000,
@@ -43,51 +47,51 @@ export const MODELS: ModelEntry[] = [
   {
     id: "guava3/gemini-3.1-flash-lite",
     name: "Gemini 3.1 Flash Lite",
-    provider: "gemini",
-    description: "Lightest and fastest",
+    provider: "guava3",
     minPlan: "free",
+    description: "Cheapest, quickest answers",
     creditsPer1kIn: 0.01,
     creditsPer1kOut: 0.03,
     contextLength: 1_000_000,
     maxOutput: 65_536,
-    vision: false,
+    vision: true,
     reasoning: false,
     status: "available",
   },
   {
     id: "guava3/gemini-3.5-flash-lite",
     name: "Gemini 3.5 Flash Lite",
-    provider: "gemini",
-    description: "Newer lightweight model",
+    provider: "guava3",
     minPlan: "free",
+    description: "Light and fast",
     creditsPer1kIn: 0.01,
     creditsPer1kOut: 0.04,
     contextLength: 1_000_000,
     maxOutput: 65_536,
-    vision: false,
+    vision: true,
     reasoning: false,
     status: "available",
   },
   {
     id: "guava3/gemini-3.8-flash-tiered",
     name: "Gemini 3.8 Flash",
-    provider: "gemini",
-    description: "Thinks harder on complex requests",
+    provider: "guava3",
     minPlan: "free",
+    description: "Newest Gemini Flash",
     creditsPer1kIn: 0.03,
     creditsPer1kOut: 0.12,
     contextLength: 1_000_000,
     maxOutput: 65_536,
     vision: true,
-    reasoning: true,
+    reasoning: false,
     status: "available",
   },
   {
     id: "free/cline-free/nemotron-3.5-super-vl",
     name: "Nemotron 3.5 Super",
-    provider: "nemotron",
-    description: "Fast open model with vision",
+    provider: "cline-free",
     minPlan: "free",
+    description: "Open model with vision",
     creditsPer1kIn: 0.01,
     creditsPer1kOut: 0.02,
     contextLength: 1_000_000,
@@ -99,9 +103,9 @@ export const MODELS: ModelEntry[] = [
   {
     id: "free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
     name: "Nemotron 3 Nano Omni",
-    provider: "nemotron",
-    description: "Small, reasoning-first model",
+    provider: "nvidia",
     minPlan: "free",
+    description: "Small reasoning model",
     creditsPer1kIn: 0.01,
     creditsPer1kOut: 0.02,
     contextLength: 131_072,
@@ -112,12 +116,39 @@ export const MODELS: ModelEntry[] = [
   },
 ];
 
-export const DEFAULT_MODEL_ID = MODELS[0].id;
+const CURATED_IDS = new Set(CURATED.map((m) => m.id));
 
-// The gateway answers 503/429 for a model when its upstream pool is drained.
-// Each model lists cheaper-or-equal substitutes, tried in order by the provider
-// so a chat still answers instead of failing; billing then uses the model that
-// actually served the request, never a more expensive one than was charged for.
+function fromCatalog([id, name, provider, inK, outK, ctx, vision, reasoning]: CatalogRow): ModelEntry {
+  return {
+    id,
+    name,
+    provider,
+    minPlan: "free",
+    creditsPer1kIn: inK,
+    creditsPer1kOut: outK,
+    contextLength: ctx,
+    maxOutput: Math.min(32_768, ctx),
+    vision: vision === 1,
+    reasoning: reasoning === 1,
+    status: "available",
+  };
+}
+
+// Every model the gateway advertises, curated ones first so the default
+// routing and the picker's top of list stay stable.
+export const MODELS: ModelEntry[] = [
+  ...CURATED,
+  ...CATALOG.filter((row) => !CURATED_IDS.has(row[0])).map(fromCatalog),
+];
+
+export const DEFAULT_MODEL_ID = CURATED[0].id;
+
+const DEFAULT_CHAIN = [
+  "guava3/gemini-3-flash",
+  "guava3/gemini-3.5-flash-lite",
+  "free/cline-free/nemotron-3.5-super-vl",
+];
+
 export const FALLBACKS: Record<string, string[]> = {
   "guava3/gemini-3-flash": ["guava3/gemini-3.1-flash-lite", "free/cline-free/nemotron-3.5-super-vl"],
   "guava3/gemini-3.1-flash-lite": ["free/cline-free/nemotron-3.5-super-vl", "free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"],
@@ -127,8 +158,11 @@ export const FALLBACKS: Record<string, string[]> = {
   "free/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": ["free/cline-free/nemotron-3.5-super-vl", "guava3/gemini-3.1-flash-lite"],
 };
 
+/** Models to try in order when `id` fails upstream (503, 429, quota, 401). */
 export function fallbacksFor(id: string): string[] {
-  return FALLBACKS[id] ?? [];
+  const explicit = FALLBACKS[id];
+  const chain = explicit ?? DEFAULT_CHAIN;
+  return chain.filter((candidate) => candidate !== id);
 }
 
 export type PlanConfig = {
@@ -145,61 +179,96 @@ export type PlanConfig = {
   blurb: string;
 };
 
-export const PROMO_PERCENT = 0;
+export const PROMO_PERCENT = 50;
 
-// One plan, Max. Activating it is free for now and permanent: the entitlement
-// is stored in the database (users.plan + user_credits.unlimited) and never
-// expires. Payment is not wired up yet — checkout returns a stub.
+// The ladder: Free → Plus → Pro → Max, plus the internal Xecoge Max that the
+// owner hands out. Max is the launch offer: activating it is free and the
+// entitlement is permanent (users.plan + user_credits.unlimited in the DB).
 export const PLANS: Record<PlanId, PlanConfig> = {
   free: {
     id: "free",
     name: "Free",
     priceCents: 0,
     promoPercent: 0,
-    monthlyCredits: 300,
-    monthlyTokens: 1_000_000,
-    buildRuns: 5,
-    requestsPerDay: 50,
+    monthlyCredits: 100,
+    monthlyTokens: 500_000,
+    buildRuns: 3,
+    requestsPerDay: 30,
     maxOutputTokens: 4096,
-    blurb: "Start chatting with every model",
-    features: [
-      "300 credits every month",
-      "Every model in the picker",
-      "5 Build runs per month",
-      "Conversation history",
-    ],
+    features: ["100 credits a month", "Every chat model", "3 Build runs a month", "30 requests a day"],
+    blurb: "Try real AI models",
+  },
+  plus: {
+    id: "plus",
+    name: "Plus",
+    priceCents: 1500,
+    promoPercent: PROMO_PERCENT,
+    monthlyCredits: 2_000,
+    monthlyTokens: 5_000_000,
+    buildRuns: 25,
+    requestsPerDay: 200,
+    maxOutputTokens: 8192,
+    features: ["2,000 credits a month", "Every chat model", "25 Build runs a month", "200 requests a day"],
+    blurb: "More credits, more models",
+  },
+  pro: {
+    id: "pro",
+    name: "Pro",
+    priceCents: 2500,
+    promoPercent: PROMO_PERCENT,
+    monthlyCredits: 6_000,
+    monthlyTokens: 20_000_000,
+    buildRuns: 100,
+    requestsPerDay: 600,
+    maxOutputTokens: 16_384,
+    features: ["6,000 credits a month", "Frontier models unlocked", "100 Build runs a month", "600 requests a day"],
+    blurb: "Frontier models unlocked",
   },
   max: {
     id: "max",
     name: "Max",
+    priceCents: 7000,
+    // 100% off during the launch: activation is a free stub payment and the
+    // entitlement lives in the database, so it never expires.
+    promoPercent: 100,
+    monthlyCredits: 20_000,
+    monthlyTokens: 100_000_000,
+    buildRuns: -1,
+    requestsPerDay: -1,
+    maxOutputTokens: 32_768,
+    features: ["Unlimited requests", "Everything unlocked", "Unlimited Build runs", "Yours forever — free during launch"],
+    blurb: "Everything, at the highest limits",
+  },
+  xmax: {
+    id: "xmax",
+    name: "Xecoge Max",
     priceCents: 0,
     promoPercent: 0,
-    monthlyCredits: 0, // ignored: user_credits.unlimited governs the balance
+    monthlyCredits: 0, // ignored: unlimited flag on user_credits governs balance
     monthlyTokens: -1,
     buildRuns: -1,
     requestsPerDay: -1,
-    maxOutputTokens: 32768,
-    blurb: "Free for now, yours forever",
-    features: [
-      "Unlimited credits",
-      "Every model, highest limits",
-      "Longest responses (32K tokens)",
-      "Unlimited Build runs",
-    ],
+    maxOutputTokens: 32_768,
+    features: ["Unlimited platform credits", "Everything unlocked", "Reserved for the owner and staff"],
+    blurb: "Exclusive internal plan — unlimited platform credits",
   },
 };
 
-export const PLAN_ORDER: PlanId[] = ["free", "max"];
+export function creditsFor(model: ModelEntry, inputTokens: number, outputTokens: number): number {
+  const raw = (inputTokens / 1000) * model.creditsPer1kIn + (outputTokens / 1000) * model.creditsPer1kOut;
+  return Math.max(1, Math.ceil(raw));
+}
 
 export function planAllows(plan: PlanId, model: ModelEntry): boolean {
   return PLAN_ORDER.indexOf(plan) >= PLAN_ORDER.indexOf(model.minPlan);
 }
 
-// Plans stored by older releases ("xmax" from the admin endpoint, or any other
-// legacy label) must never lock a paying account out of the picker: the top
-// tier maps to Max, everything else to Free.
 export function normalizePlan(plan: string | null | undefined): PlanId {
-  if (plan === "max" || plan === "xmax") return "max";
+  const value = (plan ?? "").trim().toLowerCase();
+  if (value === "xmax") return "xmax";
+  if (value === "max") return "max";
+  if (value === "pro") return "pro";
+  if (value === "plus") return "plus";
   return "free";
 }
 
@@ -211,11 +280,6 @@ export function getModelOrThrow(id: string): ModelEntry {
   const m = getModel(id);
   if (!m) throw new Error(`Unknown model: ${id}`);
   return m;
-}
-
-export function creditsFor(model: ModelEntry, inputTokens: number, outputTokens: number): number {
-  const raw = (inputTokens / 1000) * model.creditsPer1kIn + (outputTokens / 1000) * model.creditsPer1kOut;
-  return Math.max(1, Math.ceil(raw));
 }
 
 export function discountCents(plan: PlanConfig): number {

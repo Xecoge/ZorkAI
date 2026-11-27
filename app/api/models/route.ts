@@ -3,6 +3,7 @@ import { getSessionUser } from "@/lib/auth";
 import { MODELS, PLANS, PLAN_ORDER, planAllows, discountCents, normalizePlan } from "@/lib/ai/config";
 import { getSummary } from "@/lib/credits";
 import { providerConfigured } from "@/lib/ai/provider";
+import { roleOf } from "@/lib/admin";
 
 // The model registry the frontend renders from. All access rules and credit
 // costs are computed here on the server — the client never decides access.
@@ -11,8 +12,10 @@ export async function GET() {
   const credits = user ? await getSummary(user.id) : null;
   const plan = normalizePlan(user?.plan ?? credits?.plan);
   return NextResponse.json({
-    configured: providerConfigured(),
+    configured: await providerConfigured(),
     plan,
+    role: user ? roleOf(user) : "user",
+    status: user ? (user.status ?? "active") : "active",
     unlimited: credits?.unlimited ?? false,
     balance: credits?.unlimited ? null : credits?.balance ?? null,
     remaining: credits?.unlimited ? null : (credits?.remaining ?? null),

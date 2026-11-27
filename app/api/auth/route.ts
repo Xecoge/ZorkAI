@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, one } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
+import { ensureSchema } from "@/lib/db/ensure";
+import { accountBlock, blockMessage } from "@/lib/admin";
 import { hashPassword, verifyPassword, createSession, destroySession, getSessionUser, newId, ensureProfile } from "@/lib/auth";
 
 function originOf(req: NextRequest): string {
@@ -38,6 +40,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  // Columns added after the first deploy are created on demand, before any
+  // query selects them.
+  await ensureSchema();
   const body = await readBody(req);
   const action = body.action;
 
@@ -57,6 +62,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.redirect(url);
       }
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    }
+    const block = accountBlock(row);
+    if (block?.status === "banned") {
+      const message = blockMessage(block);
+      if (body.form) {
+        const url = new URL("/sign-in", originOf(req));
+        url.searchParams.set("authError", message);
+        return NextResponse.redirect(url);
+      }
+      return NextResponse.json({ error: message, blocked: "banned" }, { status: 403 });
     }
     await createSession(row.id);
     await ensureProfile({ id: row.id, email: row.email, name: row.name, passwordHash: row.passwordHash, avatarColor: row.avatarColor });
