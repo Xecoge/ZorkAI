@@ -11,7 +11,10 @@ const cache = new Map<string, { value: string; at: number }>();
 export async function getSetting(key: string): Promise<string | undefined> {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
-  await ensureSchema();
+  // Reading a setting must not depend on the bootstrap DDL: on a deployment
+  // where schema creation is restricted, a failed ensureSchema would otherwise
+  // hide a key that is already stored.
+  await ensureSchema().catch(() => undefined);
   const row = await one(db.select().from(appSettings).where(eq(appSettings.key, key)).limit(1));
   const value = (row?.value ?? "").trim();
   if (value) cache.set(key, { value, at: Date.now() });

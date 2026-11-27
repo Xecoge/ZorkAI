@@ -153,7 +153,7 @@ export function UpgradeModal({
                     onClick={() => choose(p.id)}
                     disabled={active || busy !== ""}
                     className={`mt-auto h-9 rounded-full text-[13px] font-medium transition-opacity ${
-                      active ? "bg-white/15 text-white/90 cursor-default" : "bg-white text-[#101013] hover:opacity-85 disabled:opacity-60"
+                      active ? "border border-[#0a5fbf] bg-[#0a5fbf] text-white cursor-default" : "bg-white text-[#101013] hover:opacity-85 disabled:opacity-60"
                     }`}
                   >
                     {active ? "Current plan" : busy === p.id ? "Opening checkout…" : p.id === "free" ? "Switch to Free" : `Choose ${p.name}`}
